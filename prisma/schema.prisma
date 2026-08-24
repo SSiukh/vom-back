@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  login              String   @unique
+  passwordHash       String   @map("password_hash")
+  twoFaEnabled       Boolean  @default(false) @map("two_fa_enabled")
+  twoFaSecret        String?  @map("two_fa_secret")
+  twoFaRecoveryCodes String[] @map("two_fa_recovery_codes")
+  refreshTokenHash   String?  @map("refresh_token_hash")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+type SenderAddress {
+  npAddressRef  String  @map("np_address_ref")
+  description   String
+  cityRef       String  @map("city_ref")
+  isDeactivated Boolean @default(false) @map("is_deactivated")
+}
+
+model Sender {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  apiKey             String          @map("api_key")
+  fullName           String          @map("full_name")
+  phone              String
+  npCounterpartyRef  String          @map("np_counterparty_ref")
+  npContactPersonRef String          @map("np_contact_person_ref")
+  addresses          SenderAddress[]
+  isActive           Boolean         @default(false) @map("is_active")
+  isDeactivated      Boolean         @default(false) @map("is_deactivated")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@index([isActive])
+  @@index([isDeactivated])
+  @@map("senders")
+}
+
+model ProductType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String   @unique
+  label     String
+  isCustom  Boolean  @default(false) @map("is_custom")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("product_types")
+}
+
+model Product {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  typeId        String      @map("type") @db.ObjectId
+  type          ProductType @relation(fields: [typeId], references: [id])
+  name          String
+  photoUrl      String      @map("photo_url")
+  price         Float
+  promoPrice    Float?      @map("promo_price")
+  stockQuantity Int         @map("stock_quantity")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([typeId])
+  @@map("products")
+}
+
+model ExpenseType {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  code         String   @unique
+  label        String
+  requiresName Boolean  @default(false) @map("requires_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  expenses Expense[]
+
+  @@map("expense_types")
+}
+
+model Expense {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  typeId    String      @map("type") @db.ObjectId
+  type      ExpenseType @relation(fields: [typeId], references: [id])
+  name      String?
+  amount    Float
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  @@index([typeId])
+  @@index([createdAt])
+  @@map("expenses")
+}
+
+model OrderType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String   @unique
+  label     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("order_types")
+}
+
+model ShipmentType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String   @unique
+  label     String
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("shipment_types")
+}
+
+model PaymentType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String   @unique
+  label     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("payment_types")
+}
+
+model DeliveryType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String   @unique
+  label     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("delivery_types")
+}
+
+model ShipmentStatus {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  code          String   @unique
+  label         String
+  npStatusCodes String[] @map("np_status_codes")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  orders Order[]
+
+  @@map("shipment_statuses")
+}
+
+type OrderItem {
+  productId        String? @map("product_id") @db.ObjectId
+  productTypeId    String  @map("product_type") @db.ObjectId
+  nameSnapshot     String  @map("name_snapshot")
+  photoUrlSnapshot String? @map("photo_url_snapshot")
+  price            Float
+  isPromo          Boolean @map("is_promo")
+  quantity         Int
+  subtotal         Float
+}
+
+type Recipient {
+  phone      String
+  lastName   String  @map("last_name")
+  firstName  String  @map("first_name")
+  middleName String? @map("middle_name")
+}
+
+type DeliveryDetails {
+  cityRef      String  @map("city_ref")
+  warehouseRef String? @map("warehouse_ref")
+  streetRef    String? @map("street_ref")
+  house        String?
+  apartment    String?
+  postomatRef  String? @map("postomat_ref")
+}
+
+model Order {
+  id               String          @id @default(auto()) @map("_id") @db.ObjectId
+  orderTypeId      String          @map("order_type") @db.ObjectId
+  orderType        OrderType       @relation(fields: [orderTypeId], references: [id])
+  shipmentTypeId   String          @map("shipment_type") @db.ObjectId
+  shipmentType     ShipmentType    @relation(fields: [shipmentTypeId], references: [id])
+  paymentTypeId    String          @map("payment_type") @db.ObjectId
+  paymentType      PaymentType     @relation(fields: [paymentTypeId], references: [id])
+  partialAmount    Float?          @map("partial_amount")
+  totalAmount      Float           @map("total_amount")
+  items            OrderItem[]
+  senderId         String          @map("sender_id") @db.ObjectId
+  sender           Sender          @relation(fields: [senderId], references: [id])
+  senderAddressRef String          @map("sender_address_ref")
+  recipient        Recipient
+  deliveryTypeId   String          @map("delivery_type") @db.ObjectId
+  deliveryType     DeliveryType    @relation(fields: [deliveryTypeId], references: [id])
+  deliveryDetails  DeliveryDetails @map("delivery_details")
+  npWaybillNumber  String?         @unique @map("np_waybill_number")
+  npWaybillRef     String?         @map("np_waybill_ref")
+  shipmentStatusId String?         @map("shipment_status") @db.ObjectId
+  shipmentStatus   ShipmentStatus? @relation(fields: [shipmentStatusId], references: [id])
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@index([createdAt])
+  @@map("orders")
+}

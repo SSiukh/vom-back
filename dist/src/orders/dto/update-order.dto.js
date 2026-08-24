@@ -1,0 +1,64 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UpdateOrderDto = void 0;
+const swagger_1 = require("@nestjs/swagger");
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+const order_item_dto_1 = require("./order-item.dto");
+class UpdateOrderDto {
+    orderTypeId;
+    shipmentTypeId;
+    paymentTypeId;
+    partialAmount;
+    items;
+}
+exports.UpdateOrderDto = UpdateOrderDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Ref довідника order_types' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsMongoId)(),
+    __metadata("design:type", String)
+], UpdateOrderDto.prototype, "orderTypeId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Ref довідника shipment_types' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsMongoId)(),
+    __metadata("design:type", String)
+], UpdateOrderDto.prototype, "shipmentTypeId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Ref довідника payment_types' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsMongoId)(),
+    __metadata("design:type", String)
+], UpdateOrderDto.prototype, "paymentTypeId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Сума післяплати — обов’язкова, якщо тип оплати "часткова оплата"',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], UpdateOrderDto.prototype, "partialAmount", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        type: [order_item_dto_1.OrderItemDto],
+        description: 'Повний новий перелік товарних позицій — замінює попередній',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => order_item_dto_1.OrderItemDto),
+    (0, class_validator_1.ArrayMinSize)(1),
+    __metadata("design:type", Array)
+], UpdateOrderDto.prototype, "items", void 0);
+//# sourceMappingURL=update-order.dto.js.map

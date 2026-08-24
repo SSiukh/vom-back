@@ -1,0 +1,32 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { EncryptionService } from '../shared/encryption/encryption.service';
+import { NovaPoshtaService } from '../nova-poshta/nova-poshta.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { OrderResponseDto } from './dto/order-response.dto';
+import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
+export declare class OrdersService {
+    private readonly prisma;
+    private readonly encryption;
+    private readonly novaPoshta;
+    private readonly logger;
+    constructor(prisma: PrismaService, encryption: EncryptionService, novaPoshta: NovaPoshtaService);
+    create(dto: CreateOrderDto): Promise<OrderResponseDto>;
+    update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto>;
+    findAll(page: number, pageSize: number, orderTypeId?: string, dateFrom?: string, dateTo?: string): Promise<ListOrdersResponseDto>;
+    findOne(id: string): Promise<OrderResponseDto>;
+    remove(id: string): Promise<void>;
+    syncStatus(id: string): Promise<OrderResponseDto>;
+    private resolveItems;
+    private validateDeliveryDetails;
+    private buildWaybillDescription;
+    private buildStockRestores;
+    private isConcurrencyConflict;
+    private resolveCargoType;
+    private resolveCodAmount;
+    private cleanupFailedOrderUpdate;
+    private cleanupOrphanedWaybill;
+    private cleanupDeletedOrderWaybill;
+    private findOrThrow;
+    private toResponseDto;
+}

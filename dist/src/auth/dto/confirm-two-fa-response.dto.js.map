@@ -1,0 +1,1 @@
+{"version":3,"file":"confirm-two-fa-response.dto.js","sourceRoot":"","sources":["../../../../src/auth/dto/confirm-two-fa-response.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,6CAA8C;AAE9C,MAAa,uBAAuB;IAMlC,aAAa,CAAW;CACzB;AAPD,0DAOC;AADC;IALC,IAAA,qBAAW,EAAC;QACX,IAAI,EAAE,CAAC,MAAM,CAAC;QACd,WAAW,EACT,yEAAyE;KAC5E,CAAC;;8DACsB"}
