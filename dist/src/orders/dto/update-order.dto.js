@@ -15,19 +15,12 @@ const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const order_item_dto_1 = require("./order-item.dto");
 class UpdateOrderDto {
-    orderTypeId;
     shipmentTypeId;
     paymentTypeId;
     partialAmount;
     items;
 }
 exports.UpdateOrderDto = UpdateOrderDto;
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Ref довідника order_types' }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsMongoId)(),
-    __metadata("design:type", String)
-], UpdateOrderDto.prototype, "orderTypeId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Ref довідника shipment_types' }),
     (0, class_validator_1.IsOptional)(),

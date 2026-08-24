@@ -3,7 +3,6 @@ import { RecipientResponseDto } from './recipient-response.dto';
 import { DeliveryDetailsResponseDto } from './delivery-details-response.dto';
 export declare class OrderResponseDto {
     id: string;
-    orderTypeId: string;
     shipmentTypeId: string;
     paymentTypeId: string;
     partialAmount: number | null;

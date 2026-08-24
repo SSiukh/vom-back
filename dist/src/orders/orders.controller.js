@@ -34,7 +34,7 @@ let OrdersController = class OrdersController {
         return this.ordersService.create(dto);
     }
     findAll(query) {
-        return this.ordersService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.orderTypeId, query.dateFrom, query.dateTo);
+        return this.ordersService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.dateFrom, query.dateTo);
     }
     findOne(id) {
         return this.ordersService.findOne(id);

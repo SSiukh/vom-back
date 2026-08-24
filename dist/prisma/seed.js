@@ -6,18 +6,6 @@ const prisma = new client_1.PrismaClient();
 const logger = new common_1.Logger('Seed');
 async function main() {
     await Promise.all([
-        prisma.orderType.upsert({
-            where: { code: 'custom' },
-            update: { label: 'Кастомний' },
-            create: { code: 'custom', label: 'Кастомний' },
-        }),
-        prisma.orderType.upsert({
-            where: { code: 'recurring' },
-            update: { label: 'Сталий' },
-            create: { code: 'recurring', label: 'Сталий' },
-        }),
-    ]);
-    await Promise.all([
         prisma.shipmentType.upsert({
             where: { code: 'parcel' },
             update: { label: 'Посилка', isDefault: false },

@@ -16,7 +16,6 @@ const recipient_response_dto_1 = require("./recipient-response.dto");
 const delivery_details_response_dto_1 = require("./delivery-details-response.dto");
 class OrderResponseDto {
     id;
-    orderTypeId;
     shipmentTypeId;
     paymentTypeId;
     partialAmount;
@@ -38,10 +37,6 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], OrderResponseDto.prototype, "id", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], OrderResponseDto.prototype, "orderTypeId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)

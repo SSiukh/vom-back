@@ -17,7 +17,6 @@ const order_item_dto_1 = require("./order-item.dto");
 const recipient_dto_1 = require("./recipient.dto");
 const delivery_details_dto_1 = require("./delivery-details.dto");
 class CreateOrderDto {
-    orderTypeId;
     shipmentTypeId;
     paymentTypeId;
     partialAmount;
@@ -29,11 +28,6 @@ class CreateOrderDto {
     deliveryDetails;
 }
 exports.CreateOrderDto = CreateOrderDto;
-__decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Ref довідника order_types' }),
-    (0, class_validator_1.IsMongoId)(),
-    __metadata("design:type", String)
-], CreateOrderDto.prototype, "orderTypeId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Ref довідника shipment_types' }),
     (0, class_validator_1.IsMongoId)(),

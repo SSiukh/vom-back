@@ -17,7 +17,6 @@ const MAX_PAGE_SIZE = 100;
 class ListOrdersQueryDto {
     page;
     pageSize;
-    orderTypeId;
     dateFrom;
     dateTo;
 }
@@ -39,12 +38,6 @@ __decorate([
     (0, class_validator_1.Max)(MAX_PAGE_SIZE),
     __metadata("design:type", Number)
 ], ListOrdersQueryDto.prototype, "pageSize", void 0);
-__decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Фільтр за типом замовлення' }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsMongoId)(),
-    __metadata("design:type", String)
-], ListOrdersQueryDto.prototype, "orderTypeId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Дата створення від (ISO)' }),
     (0, class_validator_1.IsOptional)(),

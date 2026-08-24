@@ -13,7 +13,7 @@ export declare class OrdersService {
     constructor(prisma: PrismaService, encryption: EncryptionService, novaPoshta: NovaPoshtaService);
     create(dto: CreateOrderDto): Promise<OrderResponseDto>;
     update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto>;
-    findAll(page: number, pageSize: number, orderTypeId?: string, dateFrom?: string, dateTo?: string): Promise<ListOrdersResponseDto>;
+    findAll(page: number, pageSize: number, dateFrom?: string, dateTo?: string): Promise<ListOrdersResponseDto>;
     findOne(id: string): Promise<OrderResponseDto>;
     remove(id: string): Promise<void>;
     syncStatus(id: string): Promise<OrderResponseDto>;

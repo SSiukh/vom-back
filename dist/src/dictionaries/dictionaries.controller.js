@@ -18,9 +18,6 @@ let DictionariesController = class DictionariesController {
     constructor(dictionariesService) {
         this.dictionariesService = dictionariesService;
     }
-    findOrderTypes() {
-        return this.dictionariesService.findOrderTypes();
-    }
     findShipmentTypes() {
         return this.dictionariesService.findShipmentTypes();
     }
@@ -41,12 +38,6 @@ let DictionariesController = class DictionariesController {
     }
 };
 exports.DictionariesController = DictionariesController;
-__decorate([
-    (0, common_1.Get)('order-types'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], DictionariesController.prototype, "findOrderTypes", null);
 __decorate([
     (0, common_1.Get)('shipment-types'),
     __metadata("design:type", Function),

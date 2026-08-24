@@ -17,16 +17,6 @@ let DictionariesService = class DictionariesService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async findOrderTypes() {
-        const orderTypes = await this.prisma.orderType.findMany({
-            orderBy: { label: 'asc' },
-        });
-        return orderTypes.map((type) => ({
-            id: type.id,
-            code: type.code,
-            label: type.label,
-        }));
-    }
     async findShipmentTypes() {
         const shipmentTypes = await this.prisma.shipmentType.findMany({
             orderBy: { label: 'asc' },
