@@ -22,7 +22,6 @@ describe('OrdersService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
-    orderType: { findUnique: jest.Mock };
     shipmentType: { findUnique: jest.Mock };
     paymentType: { findUnique: jest.Mock };
     deliveryType: { findUnique: jest.Mock };
@@ -42,7 +41,6 @@ describe('OrdersService', () => {
 
   const storedOrder = {
     id: 'order-id',
-    orderTypeId: 'order-type-id',
     shipmentTypeId: 'shipment-type-id',
     paymentTypeId: 'payment-type-id',
     partialAmount: null,
@@ -83,7 +81,6 @@ describe('OrdersService', () => {
     updatedAt: new Date('2026-01-01'),
   };
 
-  const orderType = { id: 'order-type-id', code: 'regular' };
   const shipmentType = { id: 'shipment-type-id', code: 'parcel' };
   const paymentType = { id: 'payment-type-id', code: 'full' };
   const deliveryType = { id: 'delivery-type-id', code: 'warehouse' };
@@ -123,7 +120,6 @@ describe('OrdersService', () => {
   };
 
   const createDto: CreateOrderDto = {
-    orderTypeId: 'order-type-id',
     shipmentTypeId: 'shipment-type-id',
     paymentTypeId: 'payment-type-id',
     items: [
@@ -154,7 +150,6 @@ describe('OrdersService', () => {
         update: jest.fn().mockResolvedValue(storedOrder),
         delete: jest.fn().mockResolvedValue(storedOrder),
       },
-      orderType: { findUnique: jest.fn().mockResolvedValue(orderType) },
       shipmentType: { findUnique: jest.fn().mockResolvedValue(shipmentType) },
       paymentType: { findUnique: jest.fn().mockResolvedValue(paymentType) },
       deliveryType: { findUnique: jest.fn().mockResolvedValue(deliveryType) },
@@ -200,16 +195,8 @@ describe('OrdersService', () => {
   });
 
   describe('findAll', () => {
-    it('filters by orderTypeId when provided', async () => {
-      await service.findAll(1, 10, 'order-type-id');
-
-      expect(prisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { orderTypeId: 'order-type-id' } }),
-      );
-    });
-
     it('filters by a createdAt date range when provided', async () => {
-      await service.findAll(1, 10, undefined, '2026-01-01', '2026-01-31');
+      await service.findAll(1, 10, '2026-01-01', '2026-01-31');
 
       const [[args]] = prisma.order.findMany.mock.calls as [
         [{ where: { createdAt: { gte: Date; lte: Date } } }],
@@ -259,8 +246,8 @@ describe('OrdersService', () => {
   });
 
   describe('create', () => {
-    it('rejects an unknown order/shipment/payment/delivery type', async () => {
-      prisma.orderType.findUnique.mockResolvedValueOnce(null);
+    it('rejects an unknown shipment/payment/delivery type', async () => {
+      prisma.shipmentType.findUnique.mockResolvedValueOnce(null);
 
       await expect(service.create(createDto)).rejects.toThrow(
         BadRequestException,
@@ -518,10 +505,10 @@ describe('OrdersService', () => {
   });
 
   describe('update', () => {
-    const metadataOnlyDto: UpdateOrderDto = { orderTypeId: 'order-type-id' };
+    const metadataOnlyDto: UpdateOrderDto = {};
 
-    it('rejects an unknown order/shipment/payment type', async () => {
-      prisma.orderType.findUnique.mockResolvedValueOnce(null);
+    it('rejects an unknown shipment/payment type', async () => {
+      prisma.shipmentType.findUnique.mockResolvedValueOnce(null);
 
       await expect(service.update('order-id', metadataOnlyDto)).rejects.toThrow(
         BadRequestException,
@@ -613,7 +600,7 @@ describe('OrdersService', () => {
         [
           {
             where: { id: string; updatedAt: Date };
-            data: { orderTypeId: string };
+            data: { shipmentTypeId: string; paymentTypeId: string };
           },
         ],
       ];
@@ -621,7 +608,8 @@ describe('OrdersService', () => {
         id: 'order-id',
         updatedAt: storedOrder.updatedAt,
       });
-      expect(data.orderTypeId).toBe('order-type-id');
+      expect(data.shipmentTypeId).toBe(storedOrder.shipmentTypeId);
+      expect(data.paymentTypeId).toBe(storedOrder.paymentTypeId);
     });
 
     it('recalculates totals, updates the waybill and adjusts stock when items change', async () => {

@@ -655,6 +655,36 @@ in "Features" is still to build.
       `/ping` would be inconsistent with every other endpoint; worth a
       dedicated follow-up across the whole project if desired.
 
+- [x] Remove the "order type" (`order_types`/`OrderType`,
+      `Order.orderTypeId`) concept entirely — **done. User decided
+      (confirmed directly)** this dictionary doesn't represent a real
+      business concept and should be deleted outright, not reworked:
+      `OrderType` model + `order_types` collection (dropped from Atlas via
+      `$runCommandRaw({drop: 'order_types'})`), `Order.orderTypeId`
+      field/relation, `GET /dictionaries/order-types`, the `orderTypeId`
+      filter on `GET /orders`, and the field from every Orders DTO
+      (`CreateOrderDto`/`UpdateOrderDto`/`ListOrdersQueryDto`/
+      `OrderResponseDto`). No live data affected (0 real `Order` documents
+      in Atlas at removal time, only the 2 seeded dictionary rows).
+      **User also confirmed** `VOM_SYSTEMS.md`'s Orders-list-page "Тип |
+      Фільтр типу замовлення" row should be removed too (done, synced to
+      the `vom-front` copy as well), so the canonical frontend spec
+      doesn't keep describing a filter that no longer exists on the
+      backend. `DATA-BASE.md` and `API_REFERENCE.md` updated to match
+      (also synced to `vom-front`'s copy of `API_REFERENCE.md`). Two
+      Orders e2e tests that specifically existed to exercise
+      `orderTypeId` were reworked rather than just deleted: the list-
+      filter test had no replacement (dropped outright, nothing left to
+      test), and the "metadata-only update" test now sends an empty `{}`
+      PATCH — with `orderTypeId` gone, no remaining `UpdateOrderDto` field
+      is unconditionally side-effect-free, so an empty body is the only
+      genuine no-op left to test that behavior with. `reviewer` pass: two
+      should-fix items (stale "order/shipment/payment/delivery" error-list
+      wording and a stale "7 lookup collections" count, both in
+      `API_REFERENCE.md`) found and fixed; re-synced to `vom-front` after
+      the fix. 192/192 unit + 60/60 e2e (both counts down by exactly one
+      from the removed list-filter test, not a regression).
+
 ## Suggested build order
 
 Foundations (schema + validation + config first; auth/2FA can proceed in

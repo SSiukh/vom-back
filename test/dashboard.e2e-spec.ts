@@ -59,14 +59,12 @@ describe('Dashboard (e2e)', () => {
     authUserId = authUser.userId;
 
     const [
-      orderType,
       shipmentType,
       paymentType,
       deliveryType,
       stickerType,
       deliveryExpenseType,
     ] = await Promise.all([
-      prisma.orderType.findUniqueOrThrow({ where: { code: 'custom' } }),
       prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
       prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
       prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
@@ -90,7 +88,6 @@ describe('Dashboard (e2e)', () => {
 
     const order = await prisma.order.create({
       data: {
-        orderTypeId: orderType.id,
         shipmentTypeId: shipmentType.id,
         paymentTypeId: paymentType.id,
         totalAmount: 500,

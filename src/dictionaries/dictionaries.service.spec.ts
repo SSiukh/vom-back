@@ -5,7 +5,6 @@ import { DictionariesService } from './dictionaries.service';
 describe('DictionariesService', () => {
   let service: DictionariesService;
   let prisma: {
-    orderType: { findMany: jest.Mock };
     shipmentType: { findMany: jest.Mock };
     productType: { findMany: jest.Mock };
     paymentType: { findMany: jest.Mock };
@@ -16,13 +15,6 @@ describe('DictionariesService', () => {
 
   beforeEach(async () => {
     prisma = {
-      orderType: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: '1', code: 'custom', label: 'Кастомний', extra: 'x' },
-          ]),
-      },
       shipmentType: {
         findMany: jest.fn().mockResolvedValue([
           {
@@ -91,12 +83,6 @@ describe('DictionariesService', () => {
     }).compile();
 
     service = module.get(DictionariesService);
-  });
-
-  it('maps order types to only the DTO-declared fields', async () => {
-    const result = await service.findOrderTypes();
-
-    expect(result).toEqual([{ id: '1', code: 'custom', label: 'Кастомний' }]);
   });
 
   it('maps shipment types including isDefault', async () => {

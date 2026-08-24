@@ -46,7 +46,6 @@ export class OrdersController {
     return this.ordersService.findAll(
       query.page ?? DEFAULT_PAGE,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
-      query.orderTypeId,
       query.dateFrom,
       query.dateTo,
     );

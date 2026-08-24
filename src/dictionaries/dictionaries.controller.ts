@@ -1,7 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { DictionariesService } from './dictionaries.service';
-import { OrderTypeDto } from './dto/order-type.dto';
 import { ShipmentTypeDto } from './dto/shipment-type.dto';
 import { ProductTypeDto } from './dto/product-type.dto';
 import { PaymentTypeDto } from './dto/payment-type.dto';
@@ -13,11 +12,6 @@ import { ShipmentStatusDto } from './dto/shipment-status.dto';
 @Controller('dictionaries')
 export class DictionariesController {
   constructor(private readonly dictionariesService: DictionariesService) {}
-
-  @Get('order-types')
-  findOrderTypes(): Promise<OrderTypeDto[]> {
-    return this.dictionariesService.findOrderTypes();
-  }
 
   @Get('shipment-types')
   findShipmentTypes(): Promise<ShipmentTypeDto[]> {

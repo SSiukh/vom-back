@@ -8,9 +8,6 @@ export class OrderResponseDto {
   id: string;
 
   @ApiProperty()
-  orderTypeId: string;
-
-  @ApiProperty()
   shipmentTypeId: string;
 
   @ApiProperty()

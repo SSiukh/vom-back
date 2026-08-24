@@ -39,23 +39,18 @@ export class OrdersService {
   ) {}
 
   async create(dto: CreateOrderDto): Promise<OrderResponseDto> {
-    const [orderType, shipmentType, paymentType, deliveryType] =
-      await Promise.all([
-        this.prisma.orderType.findUnique({ where: { id: dto.orderTypeId } }),
-        this.prisma.shipmentType.findUnique({
-          where: { id: dto.shipmentTypeId },
-        }),
-        this.prisma.paymentType.findUnique({
-          where: { id: dto.paymentTypeId },
-        }),
-        this.prisma.deliveryType.findUnique({
-          where: { id: dto.deliveryTypeId },
-        }),
-      ]);
+    const [shipmentType, paymentType, deliveryType] = await Promise.all([
+      this.prisma.shipmentType.findUnique({
+        where: { id: dto.shipmentTypeId },
+      }),
+      this.prisma.paymentType.findUnique({
+        where: { id: dto.paymentTypeId },
+      }),
+      this.prisma.deliveryType.findUnique({
+        where: { id: dto.deliveryTypeId },
+      }),
+    ]);
 
-    if (!orderType) {
-      throw new BadRequestException('Unknown order type');
-    }
     if (!shipmentType) {
       throw new BadRequestException('Unknown shipment type');
     }
@@ -148,7 +143,6 @@ export class OrdersService {
       const [order] = await this.prisma.$transaction([
         this.prisma.order.create({
           data: {
-            orderTypeId: dto.orderTypeId,
             shipmentTypeId: dto.shipmentTypeId,
             paymentTypeId: dto.paymentTypeId,
             partialAmount: dto.partialAmount ?? null,
@@ -200,18 +194,13 @@ export class OrdersService {
   async update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto> {
     const order = await this.findOrThrow(id);
 
-    const orderTypeId = dto.orderTypeId ?? order.orderTypeId;
     const shipmentTypeId = dto.shipmentTypeId ?? order.shipmentTypeId;
     const paymentTypeId = dto.paymentTypeId ?? order.paymentTypeId;
 
-    const [orderType, shipmentType, paymentType] = await Promise.all([
-      this.prisma.orderType.findUnique({ where: { id: orderTypeId } }),
+    const [shipmentType, paymentType] = await Promise.all([
       this.prisma.shipmentType.findUnique({ where: { id: shipmentTypeId } }),
       this.prisma.paymentType.findUnique({ where: { id: paymentTypeId } }),
     ]);
-    if (!orderType) {
-      throw new BadRequestException('Unknown order type');
-    }
     if (!shipmentType) {
       throw new BadRequestException('Unknown shipment type');
     }
@@ -385,7 +374,6 @@ export class OrdersService {
         this.prisma.order.update({
           where: { id, updatedAt: order.updatedAt },
           data: {
-            orderTypeId,
             shipmentTypeId,
             paymentTypeId,
             partialAmount: resolvedPartialAmount,
@@ -426,12 +414,10 @@ export class OrdersService {
   async findAll(
     page: number,
     pageSize: number,
-    orderTypeId?: string,
     dateFrom?: string,
     dateTo?: string,
   ): Promise<ListOrdersResponseDto> {
     const where = {
-      ...(orderTypeId && { orderTypeId }),
       ...((dateFrom || dateTo) && {
         createdAt: {
           ...(dateFrom && { gte: new Date(dateFrom) }),
@@ -780,7 +766,6 @@ export class OrdersService {
   private toResponseDto(order: Order): OrderResponseDto {
     return {
       id: order.id,
-      orderTypeId: order.orderTypeId,
       shipmentTypeId: order.shipmentTypeId,
       paymentTypeId: order.paymentTypeId,
       partialAmount: order.partialAmount,

@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderTypeDto } from './dto/order-type.dto';
 import { ShipmentTypeDto } from './dto/shipment-type.dto';
 import { ProductTypeDto } from './dto/product-type.dto';
 import { PaymentTypeDto } from './dto/payment-type.dto';
 import { ExpenseTypeDto } from './dto/expense-type.dto';
 import { DeliveryTypeDto } from './dto/delivery-type.dto';
 import { ShipmentStatusDto } from './dto/shipment-status.dto';
-import { OrderType } from './entities/order-type.entity';
 import { ShipmentType } from './entities/shipment-type.entity';
 import { ProductType } from './entities/product-type.entity';
 import { PaymentType } from './entities/payment-type.entity';
@@ -18,18 +16,6 @@ import { ShipmentStatus } from './entities/shipment-status.entity';
 @Injectable()
 export class DictionariesService {
   constructor(private readonly prisma: PrismaService) {}
-
-  async findOrderTypes(): Promise<OrderTypeDto[]> {
-    const orderTypes: OrderType[] = await this.prisma.orderType.findMany({
-      orderBy: { label: 'asc' },
-    });
-
-    return orderTypes.map((type) => ({
-      id: type.id,
-      code: type.code,
-      label: type.label,
-    }));
-  }
 
   async findShipmentTypes(): Promise<ShipmentTypeDto[]> {
     const shipmentTypes: ShipmentType[] =

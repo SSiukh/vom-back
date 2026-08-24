@@ -10,7 +10,6 @@ import { createAuthenticatedUser } from './support/auth-helper';
 
 interface OrderResponseBody {
   id: string;
-  orderTypeId: string;
   totalAmount: number;
   recipient: { lastName: string };
   npWaybillNumber: string | null;
@@ -34,7 +33,6 @@ describe('Orders (e2e)', () => {
   let seededOrderId: string;
   let seededSenderId: string;
   let seededProductId: string;
-  let orderTypeId: string;
   let shipmentTypeId: string;
   let paymentTypeId: string;
   let deliveryTypeId: string;
@@ -84,15 +82,13 @@ describe('Orders (e2e)', () => {
     accessToken = authUser.accessToken;
     authUserId = authUser.userId;
 
-    const [orderType, shipmentType, paymentType, deliveryType, productType] =
+    const [shipmentType, paymentType, deliveryType, productType] =
       await Promise.all([
-        prisma.orderType.findUniqueOrThrow({ where: { code: 'custom' } }),
         prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
         prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
         prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
         prisma.productType.findUniqueOrThrow({ where: { code: 'sticker' } }),
       ]);
-    orderTypeId = orderType.id;
     shipmentTypeId = shipmentType.id;
     paymentTypeId = paymentType.id;
     deliveryTypeId = deliveryType.id;
@@ -133,7 +129,6 @@ describe('Orders (e2e)', () => {
 
     const order = await prisma.order.create({
       data: {
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         totalAmount: 200,
@@ -185,19 +180,6 @@ describe('Orders (e2e)', () => {
     expect(body.items.some((item) => item.id === seededOrderId)).toBe(true);
   });
 
-  it('filters the list by orderTypeId', async () => {
-    const response = await request(app.getHttpServer())
-      .get('/orders')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .query({ orderTypeId })
-      .expect(200);
-    const body = response.body as ListOrdersResponseBody;
-
-    expect(body.items.every((item) => item.orderTypeId === orderTypeId)).toBe(
-      true,
-    );
-  });
-
   it('gets order detail with mapped embedded data', async () => {
     const response = await request(app.getHttpServer())
       .get(`/orders/${seededOrderId}`)
@@ -231,7 +213,6 @@ describe('Orders (e2e)', () => {
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         items: [
@@ -278,7 +259,6 @@ describe('Orders (e2e)', () => {
       .post('/orders')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         items: [
@@ -308,7 +288,6 @@ describe('Orders (e2e)', () => {
   it('updates order items, recalculates totals and calls Nova Poshta waybill update', async () => {
     const created = await prisma.order.create({
       data: {
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         totalAmount: 100,
@@ -383,26 +362,18 @@ describe('Orders (e2e)', () => {
     });
   });
 
-  it('applies a metadata-only order update without calling Nova Poshta', async () => {
-    const otherOrderType = await prisma.orderType.findUniqueOrThrow({
-      where: { code: 'recurring' },
-    });
+  it('applies a no-op order update without calling Nova Poshta', async () => {
     updateWaybillMock.mockClear();
 
     const response = await request(app.getHttpServer())
       .patch(`/orders/${seededOrderId}`)
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ orderTypeId: otherOrderType.id })
+      .send({})
       .expect(200);
     const body = response.body as OrderResponseBody;
 
-    expect(body.orderTypeId).toBe(otherOrderType.id);
+    expect(body.totalAmount).toBe(200);
     expect(updateWaybillMock).not.toHaveBeenCalled();
-
-    await prisma.order.update({
-      where: { id: seededOrderId },
-      data: { orderTypeId },
-    });
   });
 
   it('rejects an attempt to edit the recipient, delivery details or sender via PATCH (DTO whitelist)', () => {
@@ -425,7 +396,6 @@ describe('Orders (e2e)', () => {
     });
     const created = await prisma.order.create({
       data: {
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         totalAmount: 100,
@@ -477,7 +447,6 @@ describe('Orders (e2e)', () => {
   it('deletes an order, calls Nova Poshta waybill delete and restores stock', async () => {
     const created = await prisma.order.create({
       data: {
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         totalAmount: 100,
@@ -540,7 +509,6 @@ describe('Orders (e2e)', () => {
   it('still deletes the order, but returns 502, when the Nova Poshta waybill cleanup fails', async () => {
     const created = await prisma.order.create({
       data: {
-        orderTypeId,
         shipmentTypeId,
         paymentTypeId,
         totalAmount: 100,

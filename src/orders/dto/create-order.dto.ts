@@ -15,10 +15,6 @@ import { RecipientDto } from './recipient.dto';
 import { DeliveryDetailsDto } from './delivery-details.dto';
 
 export class CreateOrderDto {
-  @ApiProperty({ description: 'Ref довідника order_types' })
-  @IsMongoId()
-  orderTypeId: string;
-
   @ApiProperty({ description: 'Ref довідника shipment_types' })
   @IsMongoId()
   shipmentTypeId: string;

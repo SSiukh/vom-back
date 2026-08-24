@@ -104,18 +104,6 @@ model Expense {
   @@map("expenses")
 }
 
-model OrderType {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  code      String   @unique
-  label     String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  orders Order[]
-
-  @@map("order_types")
-}
-
 model ShipmentType {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   code      String   @unique
@@ -195,8 +183,6 @@ type DeliveryDetails {
 
 model Order {
   id               String          @id @default(auto()) @map("_id") @db.ObjectId
-  orderTypeId      String          @map("order_type") @db.ObjectId
-  orderType        OrderType       @relation(fields: [orderTypeId], references: [id])
   shipmentTypeId   String          @map("shipment_type") @db.ObjectId
   shipmentType     ShipmentType    @relation(fields: [shipmentTypeId], references: [id])
   paymentTypeId    String          @map("payment_type") @db.ObjectId

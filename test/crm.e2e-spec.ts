@@ -58,7 +58,6 @@ describe('CRM table (e2e)', () => {
     authUserId = authUser.userId;
 
     const [
-      orderType,
       shipmentType,
       paymentType,
       deliveryType,
@@ -66,7 +65,6 @@ describe('CRM table (e2e)', () => {
       keychainType,
       deliveredStatus,
     ] = await Promise.all([
-      prisma.orderType.findUniqueOrThrow({ where: { code: 'custom' } }),
       prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
       prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
       prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
@@ -94,7 +92,6 @@ describe('CRM table (e2e)', () => {
 
     const stickerOrder = await prisma.order.create({
       data: {
-        orderTypeId: orderType.id,
         shipmentTypeId: shipmentType.id,
         paymentTypeId: paymentType.id,
         totalAmount: 100,
@@ -131,7 +128,6 @@ describe('CRM table (e2e)', () => {
 
     const stickerOrder2 = await prisma.order.create({
       data: {
-        orderTypeId: orderType.id,
         shipmentTypeId: shipmentType.id,
         paymentTypeId: paymentType.id,
         totalAmount: 50,
@@ -167,7 +163,6 @@ describe('CRM table (e2e)', () => {
 
     const keychainOrder = await prisma.order.create({
       data: {
-        orderTypeId: orderType.id,
         shipmentTypeId: shipmentType.id,
         paymentTypeId: paymentType.id,
         totalAmount: 250,

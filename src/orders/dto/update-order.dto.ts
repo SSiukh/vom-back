@@ -11,11 +11,6 @@ import {
 import { OrderItemDto } from './order-item.dto';
 
 export class UpdateOrderDto {
-  @ApiPropertyOptional({ description: 'Ref довідника order_types' })
-  @IsOptional()
-  @IsMongoId()
-  orderTypeId?: string;
-
   @ApiPropertyOptional({ description: 'Ref довідника shipment_types' })
   @IsOptional()
   @IsMongoId()
