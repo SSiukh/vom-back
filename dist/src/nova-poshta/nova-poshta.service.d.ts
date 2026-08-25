@@ -8,11 +8,6 @@ export interface AddressOption {
     ref: string;
     description: string;
 }
-export interface SenderAddressOption {
-    ref: string;
-    description: string;
-    cityRef: string;
-}
 export interface CreateWaybillParams {
     senderCounterpartyRef: string;
     senderContactPersonRef: string;
@@ -60,11 +55,11 @@ export declare class NovaPoshtaService {
     getWarehouses(apiKey: string, cityRef: string, typeOfWarehouseRef?: string): Promise<AddressOption[]>;
     getStreets(apiKey: string, cityRef: string, query?: string): Promise<AddressOption[]>;
     getPostomats(apiKey: string, cityRef: string): Promise<AddressOption[]>;
-    getSenderAddresses(apiKey: string, counterpartyRef: string): Promise<SenderAddressOption[]>;
     createWaybill(apiKey: string, params: CreateWaybillParams): Promise<WaybillResult>;
     updateWaybill(apiKey: string, params: UpdateWaybillParams): Promise<void>;
     deleteWaybill(apiKey: string, waybillRef: string): Promise<void>;
     getShipmentStatus(apiKey: string, waybillNumber: string): Promise<ShipmentStatus>;
+    private buildDimensions;
     private buildBackwardDeliveryData;
     private callMethod;
 }

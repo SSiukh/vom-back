@@ -352,7 +352,7 @@ describe('OrdersService', () => {
         'decrypted-api-key',
         expect.objectContaining({
           cargoType: 'Parcel',
-          serviceType: 'DoorsWarehouse',
+          serviceType: 'WarehouseWarehouse',
           senderCityRef: 'sender-city-ref',
           recipientAddressRef: 'warehouse-ref',
           cost: 200,

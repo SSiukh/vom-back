@@ -1,24 +1,22 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../shared/encryption/encryption.service';
 import {
+  AddressOption,
   NovaPoshtaService,
-  SenderAddressOption,
 } from '../nova-poshta/nova-poshta.service';
 import { VerifySenderDto } from './dto/verify-sender.dto';
 import { CreateSenderDto } from './dto/create-sender.dto';
+import { SetSenderWarehouseDto } from './dto/set-sender-warehouse.dto';
 import { SenderVerificationResultDto } from './dto/sender-verification-result.dto';
 import { SenderResponseDto } from './dto/sender-response.dto';
 import { ListSendersResponseDto } from './dto/list-senders-response.dto';
 import { SenderAddressResponseDto } from './dto/sender-address-response.dto';
 import { Sender } from './entities/sender.entity';
-
-interface StoredAddress {
-  npAddressRef: string;
-  description: string;
-  cityRef: string;
-  isDeactivated: boolean;
-}
 
 @Injectable()
 export class SendersService {
@@ -36,9 +34,10 @@ export class SendersService {
 
   async create(dto: CreateSenderDto): Promise<SenderResponseDto> {
     const verified = await this.novaPoshta.verifySender(dto.apiKey);
-    const addresses = await this.novaPoshta.getSenderAddresses(
+    const warehouse = await this.resolveWarehouse(
       dto.apiKey,
-      verified.counterpartyRef,
+      dto.cityRef,
+      dto.warehouseRef,
     );
 
     const sender = await this.prisma.sender.create({
@@ -48,7 +47,14 @@ export class SendersService {
         phone: verified.phone,
         npCounterpartyRef: verified.counterpartyRef,
         npContactPersonRef: verified.contactPersonRef,
-        addresses: this.mergeAddresses([], addresses),
+        addresses: [
+          {
+            npAddressRef: warehouse.ref,
+            description: warehouse.description,
+            cityRef: dto.cityRef,
+            isDeactivated: false,
+          },
+        ],
         isActive: false,
         isDeactivated: false,
       },
@@ -111,10 +117,6 @@ export class SendersService {
     const sender = await this.findActiveOrThrow(id);
     const apiKey = this.encryption.decrypt(sender.apiKey);
     const verified = await this.novaPoshta.verifySender(apiKey);
-    const addresses = await this.novaPoshta.getSenderAddresses(
-      apiKey,
-      verified.counterpartyRef,
-    );
 
     const updated = await this.prisma.sender.update({
       where: { id: sender.id },
@@ -123,7 +125,35 @@ export class SendersService {
         phone: verified.phone,
         npCounterpartyRef: verified.counterpartyRef,
         npContactPersonRef: verified.contactPersonRef,
-        addresses: this.mergeAddresses(sender.addresses, addresses),
+      },
+    });
+
+    return this.toResponseDto(updated);
+  }
+
+  async setWarehouse(
+    id: string,
+    dto: SetSenderWarehouseDto,
+  ): Promise<SenderResponseDto> {
+    const sender = await this.findActiveOrThrow(id);
+    const apiKey = this.encryption.decrypt(sender.apiKey);
+    const warehouse = await this.resolveWarehouse(
+      apiKey,
+      dto.cityRef,
+      dto.warehouseRef,
+    );
+
+    const updated = await this.prisma.sender.update({
+      where: { id: sender.id },
+      data: {
+        addresses: [
+          {
+            npAddressRef: warehouse.ref,
+            description: warehouse.description,
+            cityRef: dto.cityRef,
+            isDeactivated: false,
+          },
+        ],
       },
     });
 
@@ -139,20 +169,20 @@ export class SendersService {
     });
   }
 
-  private mergeAddresses(
-    existing: StoredAddress[],
-    fetched: SenderAddressOption[],
-  ): StoredAddress[] {
-    const existingByRef = new Map(
-      existing.map((address) => [address.npAddressRef, address]),
-    );
+  private async resolveWarehouse(
+    apiKey: string,
+    cityRef: string,
+    warehouseRef: string,
+  ): Promise<AddressOption> {
+    const warehouses = await this.novaPoshta.getWarehouses(apiKey, cityRef);
+    const warehouse = warehouses.find((option) => option.ref === warehouseRef);
+    if (!warehouse) {
+      throw new BadRequestException(
+        'Unknown warehouse for the given city — verify cityRef/warehouseRef against GET /nova-poshta/warehouses',
+      );
+    }
 
-    return fetched.map((address) => ({
-      npAddressRef: address.ref,
-      description: address.description,
-      cityRef: address.cityRef,
-      isDeactivated: existingByRef.get(address.ref)?.isDeactivated ?? false,
-    }));
+    return warehouse;
   }
 
   private async findActiveOrThrow(id: string): Promise<Sender> {

@@ -45,12 +45,6 @@ export interface AddressOption {
   description: string;
 }
 
-export interface SenderAddressOption {
-  ref: string;
-  description: string;
-  cityRef: string;
-}
-
 export interface CreateWaybillParams {
   senderCounterpartyRef: string;
   senderContactPersonRef: string;
@@ -221,24 +215,6 @@ export class NovaPoshtaService {
     return this.getWarehouses(apiKey, cityRef, postomatType.ref);
   }
 
-  async getSenderAddresses(
-    apiKey: string,
-    counterpartyRef: string,
-  ): Promise<SenderAddressOption[]> {
-    const addresses = await this.callMethod<
-      RefDescriptionResult & { CityRef: string }
-    >(apiKey, 'Counterparty', 'getCounterpartyAddresses', {
-      Ref: counterpartyRef,
-      CounterpartyProperty: 'Sender',
-    });
-
-    return addresses.map((address) => ({
-      ref: address.Ref,
-      description: address.Description,
-      cityRef: address.CityRef,
-    }));
-  }
-
   async createWaybill(
     apiKey: string,
     params: CreateWaybillParams,
@@ -252,9 +228,7 @@ export class NovaPoshtaService {
       PaymentMethod: 'Cash',
       CargoType: params.cargoType,
       ServiceType: params.serviceType,
-      SeatsAmount: WAYBILL_SEATS_AMOUNT,
-      Weight: WAYBILL_WEIGHT_KG,
-      VolumeGeneral: WAYBILL_VOLUME_M3,
+      ...this.buildDimensions(params.cargoType),
       Cost: String(params.cost),
       Description: params.description,
       Sender: params.senderCounterpartyRef,
@@ -287,9 +261,7 @@ export class NovaPoshtaService {
       PaymentMethod: 'Cash',
       CargoType: params.cargoType,
       ServiceType: params.serviceType,
-      SeatsAmount: WAYBILL_SEATS_AMOUNT,
-      Weight: WAYBILL_WEIGHT_KG,
-      VolumeGeneral: WAYBILL_VOLUME_M3,
+      ...this.buildDimensions(params.cargoType),
       Cost: String(params.cost),
       Description: params.description,
       Sender: params.senderCounterpartyRef,
@@ -328,6 +300,22 @@ export class NovaPoshtaService {
     }
 
     return { statusCode: result.StatusCode, status: result.Status };
+  }
+
+  private buildDimensions(cargoType: string): {
+    SeatsAmount: string;
+    Weight?: string;
+    VolumeGeneral?: string;
+  } {
+    if (cargoType === 'Documents') {
+      return { SeatsAmount: WAYBILL_SEATS_AMOUNT };
+    }
+
+    return {
+      SeatsAmount: WAYBILL_SEATS_AMOUNT,
+      Weight: WAYBILL_WEIGHT_KG,
+      VolumeGeneral: WAYBILL_VOLUME_M3,
+    };
   }
 
   private buildBackwardDeliveryData(codAmount: number | null): {

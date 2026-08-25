@@ -39,13 +39,16 @@ describe('Senders (e2e)', () => {
     phone: '380000000000',
   };
 
-  const fetchedAddresses = [
-    {
-      ref: 'e2e-address-ref',
-      description: 'E2E, вул. Тестова, 1',
-      cityRef: 'e2e-city-ref',
-    },
+  const fetchedWarehouses = [
+    { ref: 'e2e-warehouse-ref', description: 'E2E Відділення №1' },
+    { ref: 'e2e-warehouse-ref-2', description: 'E2E Відділення №2' },
   ];
+
+  const createBody = {
+    apiKey: 'e2e-fake-key',
+    cityRef: 'e2e-city-ref',
+    warehouseRef: 'e2e-warehouse-ref',
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -54,7 +57,7 @@ describe('Senders (e2e)', () => {
       .overrideProvider(NovaPoshtaService)
       .useValue({
         verifySender: jest.fn().mockResolvedValue(verifiedResult),
-        getSenderAddresses: jest.fn().mockResolvedValue(fetchedAddresses),
+        getWarehouses: jest.fn().mockResolvedValue(fetchedWarehouses),
       })
       .compile();
 
@@ -91,7 +94,15 @@ describe('Senders (e2e)', () => {
     return request(app.getHttpServer())
       .post('/senders')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ apiKey: 'e2e-fake-key', fullName: 'Should Be Ignored' })
+      .send({ ...createBody, fullName: 'Should Be Ignored' })
+      .expect(400);
+  });
+
+  it('rejects a warehouseRef that Nova Poshta does not return for the given city', () => {
+    return request(app.getHttpServer())
+      .post('/senders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ ...createBody, warehouseRef: 'unknown-warehouse-ref' })
       .expect(400);
   });
 
@@ -109,11 +120,11 @@ describe('Senders (e2e)', () => {
     });
   });
 
-  it('creates a sender using Nova Poshta-verified data', async () => {
+  it('creates a sender using Nova Poshta-verified data and the chosen warehouse', async () => {
     const response = await request(app.getHttpServer())
       .post('/senders')
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ apiKey: 'e2e-fake-key' })
+      .send(createBody)
       .expect(201);
     const body = response.body as SenderResponseBody;
 
@@ -125,6 +136,14 @@ describe('Senders (e2e)', () => {
     expect(body.apiKey).toBeUndefined();
 
     createdIds.push(body.id);
+
+    const addressesResponse = await request(app.getHttpServer())
+      .get(`/senders/${body.id}/addresses`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(addressesResponse.body).toEqual([
+      { npAddressRef: 'e2e-warehouse-ref', description: 'E2E Відділення №1' },
+    ]);
   });
 
   it('lists the created sender', async () => {
@@ -162,6 +181,27 @@ describe('Senders (e2e)', () => {
       fullName: verifiedResult.fullName,
       phone: verifiedResult.phone,
     });
+  });
+
+  it('changes the pickup warehouse', async () => {
+    const [id] = createdIds;
+
+    await request(app.getHttpServer())
+      .patch(`/senders/${id}/warehouse`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ cityRef: 'e2e-city-ref', warehouseRef: 'e2e-warehouse-ref-2' })
+      .expect(200);
+
+    const addressesResponse = await request(app.getHttpServer())
+      .get(`/senders/${id}/addresses`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(addressesResponse.body).toEqual([
+      {
+        npAddressRef: 'e2e-warehouse-ref-2',
+        description: 'E2E Відділення №2',
+      },
+    ]);
   });
 
   it('rejects a malformed id with a 400, not a raw Prisma error', () => {

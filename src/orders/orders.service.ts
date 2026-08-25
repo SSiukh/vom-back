@@ -125,7 +125,7 @@ export class OrdersService {
       senderCityRef: senderAddress.cityRef,
       senderAddressRef: dto.senderAddressRef,
       cargoType: this.resolveCargoType(shipmentType.code),
-      serviceType: 'DoorsWarehouse',
+      serviceType: 'WarehouseWarehouse',
       cost: totalAmount,
       codAmount: this.resolveCodAmount(
         paymentType.code,
@@ -334,7 +334,7 @@ export class OrdersService {
         senderPhone: sender.phone,
         senderCityRef: senderAddress.cityRef,
         senderAddressRef: order.senderAddressRef,
-        serviceType: 'DoorsWarehouse',
+        serviceType: 'WarehouseWarehouse',
         recipientCityRef: order.deliveryDetails.cityRef,
         recipientAddressRef,
         recipientPhone: order.recipient.phone,

@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { SendersService } from './senders.service';
 import { VerifySenderDto } from './dto/verify-sender.dto';
 import { CreateSenderDto } from './dto/create-sender.dto';
+import { SetSenderWarehouseDto } from './dto/set-sender-warehouse.dto';
 import { SenderVerificationResultDto } from './dto/sender-verification-result.dto';
 import { SenderResponseDto } from './dto/sender-response.dto';
 import { ListSendersQueryDto } from './dto/list-senders-query.dto';
@@ -82,6 +83,20 @@ export class SendersController {
     @Param('id', ParseObjectIdPipe) id: string,
   ): Promise<SenderResponseDto> {
     return this.sendersService.refresh(id);
+  }
+
+  @Throttle({
+    default: {
+      limit: NOVA_POSHTA_CALL_THROTTLE_LIMIT,
+      ttl: NOVA_POSHTA_CALL_THROTTLE_TTL_MS,
+    },
+  })
+  @Patch(':id/warehouse')
+  setWarehouse(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetSenderWarehouseDto,
+  ): Promise<SenderResponseDto> {
+    return this.sendersService.setWarehouse(id, dto);
   }
 
   @Delete(':id')

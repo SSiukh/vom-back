@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../shared/encryption/encryption.service';
@@ -19,7 +19,7 @@ describe('SendersService', () => {
     $transaction: jest.Mock;
   };
   let encryption: { encrypt: jest.Mock; decrypt: jest.Mock };
-  let novaPoshta: { verifySender: jest.Mock; getSenderAddresses: jest.Mock };
+  let novaPoshta: { verifySender: jest.Mock; getWarehouses: jest.Mock };
 
   const verifiedResult = {
     counterpartyRef: 'counterparty-ref',
@@ -28,13 +28,16 @@ describe('SendersService', () => {
     phone: '380501234567',
   };
 
-  const fetchedAddresses = [
-    {
-      ref: 'address-ref-1',
-      description: 'Луцьк, вул. Молоді, 8а',
-      cityRef: 'lutsk-city-ref',
-    },
+  const fetchedWarehouses = [
+    { ref: 'warehouse-ref-1', description: 'Відділення №1: вул. Шевченка, 1' },
+    { ref: 'warehouse-ref-2', description: 'Відділення №2: вул. Франка, 2' },
   ];
+
+  const createDto = {
+    apiKey: 'raw-key',
+    cityRef: 'lutsk-city-ref',
+    warehouseRef: 'warehouse-ref-1',
+  };
 
   const storedSender = {
     id: 'sender-id',
@@ -45,8 +48,8 @@ describe('SendersService', () => {
     npContactPersonRef: verifiedResult.contactPersonRef,
     addresses: [
       {
-        npAddressRef: 'address-ref-1',
-        description: 'Луцьк, вул. Молоді, 8а',
+        npAddressRef: 'warehouse-ref-1',
+        description: 'Відділення №1: вул. Шевченка, 1',
         cityRef: 'lutsk-city-ref',
         isDeactivated: false,
       },
@@ -83,7 +86,7 @@ describe('SendersService', () => {
     };
     novaPoshta = {
       verifySender: jest.fn().mockResolvedValue(verifiedResult),
-      getSenderAddresses: jest.fn().mockResolvedValue(fetchedAddresses),
+      getWarehouses: jest.fn().mockResolvedValue(fetchedWarehouses),
     };
 
     const module = await Test.createTestingModule({
@@ -112,7 +115,7 @@ describe('SendersService', () => {
 
   describe('create', () => {
     it('never stores the raw API key — always the encrypted form', async () => {
-      await service.create({ apiKey: 'raw-key' });
+      await service.create(createDto);
 
       expect(encryption.encrypt).toHaveBeenCalledWith('raw-key');
       const [[{ data }]] = prisma.sender.create.mock.calls as [
@@ -122,7 +125,7 @@ describe('SendersService', () => {
     });
 
     it('takes fullName/phone from Nova Poshta, not from client input', async () => {
-      await service.create({ apiKey: 'raw-key' });
+      await service.create(createDto);
 
       const [[{ data }]] = prisma.sender.create.mock.calls as [
         [{ data: { fullName: string; phone: string } }],
@@ -131,12 +134,12 @@ describe('SendersService', () => {
       expect(data.phone).toBe(verifiedResult.phone);
     });
 
-    it('caches the sender addresses fetched from Nova Poshta', async () => {
-      await service.create({ apiKey: 'raw-key' });
+    it('resolves the chosen warehouse against Nova Poshta and stores its real description', async () => {
+      await service.create(createDto);
 
-      expect(novaPoshta.getSenderAddresses).toHaveBeenCalledWith(
+      expect(novaPoshta.getWarehouses).toHaveBeenCalledWith(
         'raw-key',
-        verifiedResult.counterpartyRef,
+        'lutsk-city-ref',
       );
       const [[{ data }]] = prisma.sender.create.mock.calls as [
         [
@@ -154,12 +157,18 @@ describe('SendersService', () => {
       ];
       expect(data.addresses).toEqual([
         {
-          npAddressRef: 'address-ref-1',
-          description: 'Луцьк, вул. Молоді, 8а',
+          npAddressRef: 'warehouse-ref-1',
+          description: 'Відділення №1: вул. Шевченка, 1',
           cityRef: 'lutsk-city-ref',
           isDeactivated: false,
         },
       ]);
+    });
+
+    it('rejects a warehouseRef that does not belong to the given cityRef', async () => {
+      await expect(
+        service.create({ ...createDto, warehouseRef: 'unknown-ref' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -182,8 +191,8 @@ describe('SendersService', () => {
 
       expect(result).toEqual([
         {
-          npAddressRef: 'address-ref-1',
-          description: 'Луцьк, вул. Молоді, 8а',
+          npAddressRef: 'warehouse-ref-1',
+          description: 'Відділення №1: вул. Шевченка, 1',
         },
       ]);
     });
@@ -225,22 +234,29 @@ describe('SendersService', () => {
       expect(novaPoshta.verifySender).toHaveBeenCalledWith('decrypted-api-key');
     });
 
-    it('re-fetches addresses and preserves isDeactivated for ones already flagged', async () => {
-      novaPoshta.getSenderAddresses.mockResolvedValueOnce([
-        {
-          ref: 'address-ref-1',
-          description: 'Оновлений опис',
-          cityRef: 'lutsk-city-ref',
-        },
-        {
-          ref: 'address-ref-2',
-          description: 'Стара адреса',
-          cityRef: 'other-city-ref',
-        },
-      ]);
-
+    it('never touches the stored warehouse address (identity refresh only)', async () => {
       await service.refresh('sender-id');
 
+      expect(novaPoshta.getWarehouses).not.toHaveBeenCalled();
+      const [[{ data }]] = prisma.sender.update.mock.calls as [
+        [{ data: Record<string, unknown> }],
+      ];
+      expect(data.addresses).toBeUndefined();
+    });
+  });
+
+  describe('setWarehouse', () => {
+    it('resolves and replaces the stored warehouse address', async () => {
+      await service.setWarehouse('sender-id', {
+        cityRef: 'lutsk-city-ref',
+        warehouseRef: 'warehouse-ref-2',
+      });
+
+      expect(encryption.decrypt).toHaveBeenCalledWith(storedSender.apiKey);
+      expect(novaPoshta.getWarehouses).toHaveBeenCalledWith(
+        'decrypted-api-key',
+        'lutsk-city-ref',
+      );
       const [[{ data }]] = prisma.sender.update.mock.calls as [
         [
           {
@@ -257,18 +273,32 @@ describe('SendersService', () => {
       ];
       expect(data.addresses).toEqual([
         {
-          npAddressRef: 'address-ref-1',
-          description: 'Оновлений опис',
+          npAddressRef: 'warehouse-ref-2',
+          description: 'Відділення №2: вул. Франка, 2',
           cityRef: 'lutsk-city-ref',
           isDeactivated: false,
         },
-        {
-          npAddressRef: 'address-ref-2',
-          description: 'Стара адреса',
-          cityRef: 'other-city-ref',
-          isDeactivated: true,
-        },
       ]);
+    });
+
+    it('rejects a warehouseRef that does not belong to the given cityRef', async () => {
+      await expect(
+        service.setWarehouse('sender-id', {
+          cityRef: 'lutsk-city-ref',
+          warehouseRef: 'unknown-ref',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws if the sender does not exist or is deactivated', async () => {
+      prisma.sender.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.setWarehouse('missing-id', {
+          cityRef: 'lutsk-city-ref',
+          warehouseRef: 'warehouse-ref-1',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

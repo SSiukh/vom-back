@@ -19,6 +19,7 @@ const throttler_1 = require("@nestjs/throttler");
 const senders_service_1 = require("./senders.service");
 const verify_sender_dto_1 = require("./dto/verify-sender.dto");
 const create_sender_dto_1 = require("./dto/create-sender.dto");
+const set_sender_warehouse_dto_1 = require("./dto/set-sender-warehouse.dto");
 const list_senders_query_dto_1 = require("./dto/list-senders-query.dto");
 const parse_object_id_pipe_1 = require("../shared/pipes/parse-object-id.pipe");
 const DEFAULT_PAGE = 1;
@@ -44,6 +45,9 @@ let SendersController = class SendersController {
     }
     refresh(id) {
         return this.sendersService.refresh(id);
+    }
+    setWarehouse(id, dto) {
+        return this.sendersService.setWarehouse(id, dto);
     }
     deactivate(id) {
         return this.sendersService.deactivate(id);
@@ -106,6 +110,20 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SendersController.prototype, "refresh", null);
+__decorate([
+    (0, throttler_1.Throttle)({
+        default: {
+            limit: NOVA_POSHTA_CALL_THROTTLE_LIMIT,
+            ttl: NOVA_POSHTA_CALL_THROTTLE_TTL_MS,
+        },
+    }),
+    (0, common_1.Patch)(':id/warehouse'),
+    __param(0, (0, common_1.Param)('id', parse_object_id_pipe_1.ParseObjectIdPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, set_sender_warehouse_dto_1.SetSenderWarehouseDto]),
+    __metadata("design:returntype", Promise)
+], SendersController.prototype, "setWarehouse", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),

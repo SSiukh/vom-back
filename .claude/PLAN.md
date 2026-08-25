@@ -692,3 +692,78 @@ parallel once their open questions are answered) → Senders → Products →
 Orders → Expenses → CRM table → Dashboard. Orders is the largest single
 feature (wizard + Nova Poshta integration + stock logic) — expect it to
 dominate once foundations, Senders, and Products are in place.
+
+## Bug: sender pickup point should be a warehouse (відділення), not a street address
+
+- [x] **Done.** User reported (via the real Angular frontend, not
+      guessed): the "Адреса відправки" select on the order-creation wizard
+      pulls a real street address ("Молоді вул. 8а кв. 127") from Nova
+      Poshta, but the user's actual NP web cabinet under "Мої адреси" shows
+      only **one відділення (warehouse)** linked to their account — no
+      street address. **User confirmed the fix direction directly:** the
+      sender always drops packages off at a warehouse in reality (matches
+      the earlier-confirmed "sender always ships from a відділення, never
+      a door/street pickup" business decision from the Orders COD/door-to-
+      door work) — the select should resolve/show a warehouse, not a
+      street address, and a shipment must never be created against a
+      street address for this business.
+      **Root cause confirmed via `research` + a live read-only API call
+      against the real account:** `NovaPoshtaService.getSenderAddresses()`
+      called `Counterparty.getCounterpartyAddresses` (`CounterpartyProperty:
+      'Sender'`), which genuinely returns a *street* address, not a
+      warehouse — and `Counterparty.getCounterparties` returns `City:
+      "00000000-0000-0000-0000-000000000000"` (all zeros) for a
+      `PrivatePerson` counterparty, so there's no NP API path to even
+      derive the sender's own city automatically, let alone which specific
+      warehouse is pinned in the NP web cabinet's "Мої адреси" — that
+      appears to be an NP-web-cabinet-only concept, not exposed via their
+      JSON API at all. **User confirmed the fix mechanism directly**
+      (asked explicitly, not assumed): the admin manually picks the pickup
+      warehouse (city search + warehouse select) at sender create/edit
+      time, reusing the exact same `GET /nova-poshta/warehouses` mechanism
+      already used for the recipient side of the Orders wizard.
+      **Shipped:** `NovaPoshtaService.getSenderAddresses`/
+      `SenderAddressOption` deleted outright (dead code, wrong mechanism).
+      `CreateSenderDto` gained `cityRef`+`warehouseRef` (new
+      `SetSenderWarehouseDto`, composed in via `IntersectionType`);
+      `SendersService.create()` validates the chosen warehouse against a
+      live `GET /nova-poshta/warehouses` call (400 if it doesn't resolve —
+      never trusts a client-supplied description, always stores NP's real
+      one). `refresh()` no longer touches the stored warehouse at all
+      (identity-only refresh now — re-fetching from the old, wrong
+      mechanism would just refetch garbage); a new
+      `PATCH /senders/:id/warehouse` (`SendersService.setWarehouse()`)
+      lets the admin change it later, same validation, replacing the
+      single-element `addresses[]` array wholesale (this business only
+      ever has one pickup point — the old `mergeAddresses()`
+      multi-address-diff logic was deleted as no-longer-applicable).
+      `OrdersService`'s waybill `ServiceType` changed from
+      `'DoorsWarehouse'` to `'WarehouseWarehouse'` in both `create()` and
+      `update()` (sender now drops off at a warehouse on both ends, not
+      door-pickup).
+      **Live-tested against the real Nova Poshta API before shipping**
+      (user-approved, same precedent as every other NP contract change in
+      this project): called `NovaPoshtaService.createWaybill()` directly
+      via `NP_TEST_API_KEY` with `ServiceType: 'WarehouseWarehouse'` and a
+      real warehouse ref in `SenderAddress` — Nova Poshta accepted it and
+      returned a real waybill number/ref, immediately deleted afterward.
+      Confirms the fix genuinely works against the live API, not just
+      against secondary-source SDK research (the primary
+      developers.novaposhta.ua docs were unreachable again, as in every
+      prior NP research pass for this project).
+      Tests updated (`senders.service.spec.ts`, `nova-poshta.service.spec.ts`,
+      `orders.service.spec.ts`, `test/senders.e2e-spec.ts`) — 195/195 unit
+      + 62/62 e2e. `reviewer` pass came back fully clean (one non-blocking
+      nit — a locally-declared type duplicating the existing `AddressOption`
+      — addressed anyway).
+      **Deliberately not auto-fixed:** the real production `Sender`
+      document in Atlas still has the old, wrong street-address entry
+      stored — there's no way to know which of the ~431 warehouses in
+      that city is the one actually used, so this is left as a manual
+      `PATCH /senders/:id/warehouse` action for the user (or the
+      corresponding frontend UI once built) rather than guessed.
+      Docs synced: `.claude/artifacts/backend/API_REFERENCE.md` (Senders
+      section rewritten with the business-rule explanation + new
+      fields/endpoint) and `.claude/artifacts/frontend/VOM_SYSTEMS.md`
+      ("Сторінка внесення відправника" gained city/warehouse rows) — both
+      also copied to the sibling `vom-front` project's artifact copies.

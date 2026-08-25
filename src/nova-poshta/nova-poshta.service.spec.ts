@@ -183,44 +183,6 @@ describe('NovaPoshtaService', () => {
     });
   });
 
-  describe('getSenderAddresses', () => {
-    it('maps Ref/Description/CityRef to ref/description/cityRef', async () => {
-      mockNovaPoshtaResponse([
-        {
-          Ref: 'address-ref',
-          Description: 'Луцьк, вул. Молоді, 8а',
-          CityRef: 'lutsk-city-ref',
-        },
-      ]);
-
-      const result = await service.getSenderAddresses(
-        'test-api-key',
-        'counterparty-ref',
-      );
-
-      expect(result).toEqual([
-        {
-          ref: 'address-ref',
-          description: 'Луцьк, вул. Молоді, 8а',
-          cityRef: 'lutsk-city-ref',
-        },
-      ]);
-      const parsedBody = JSON.parse(
-        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
-      ) as {
-        modelName: string;
-        calledMethod: string;
-        methodProperties: Record<string, unknown>;
-      };
-      expect(parsedBody.modelName).toBe('Counterparty');
-      expect(parsedBody.calledMethod).toBe('getCounterpartyAddresses');
-      expect(parsedBody.methodProperties).toEqual({
-        Ref: 'counterparty-ref',
-        CounterpartyProperty: 'Sender',
-      });
-    });
-  });
-
   describe('createWaybill', () => {
     const params = {
       senderCounterpartyRef: 'sender-counterparty-ref',
@@ -279,6 +241,24 @@ describe('NovaPoshtaService', () => {
         RecipientName: params.recipientName,
         RecipientsPhone: params.recipientPhone,
       });
+    });
+
+    it('omits Weight/VolumeGeneral entirely for the "Documents" cargo type (Nova Poshta rejects them with "VolumeWeight must be empty")', async () => {
+      mockNovaPoshtaResponse([
+        { Ref: 'waybill-ref', IntDocNumber: '20450000000000' },
+      ]);
+
+      await service.createWaybill('test-api-key', {
+        ...params,
+        cargoType: 'Documents',
+      });
+
+      const parsedBody = JSON.parse(
+        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+      ) as { methodProperties: Record<string, unknown> };
+      expect(parsedBody.methodProperties.SeatsAmount).toBe('1');
+      expect(parsedBody.methodProperties.Weight).toBeUndefined();
+      expect(parsedBody.methodProperties.VolumeGeneral).toBeUndefined();
     });
 
     it('sends the codAmount as a cash-on-delivery BackwardDeliveryData entry', async () => {
@@ -394,6 +374,22 @@ describe('NovaPoshtaService', () => {
         (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
       ) as { methodProperties: Record<string, unknown> };
       expect(parsedBody.methodProperties.BackwardDeliveryData).toBeUndefined();
+    });
+
+    it('omits Weight/VolumeGeneral entirely for the "Documents" cargo type', async () => {
+      mockNovaPoshtaResponse([{ Ref: 'waybill-ref' }]);
+
+      await service.updateWaybill('test-api-key', {
+        ...updateParams,
+        cargoType: 'Documents',
+      });
+
+      const parsedBody = JSON.parse(
+        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+      ) as { methodProperties: Record<string, unknown> };
+      expect(parsedBody.methodProperties.SeatsAmount).toBe('1');
+      expect(parsedBody.methodProperties.Weight).toBeUndefined();
+      expect(parsedBody.methodProperties.VolumeGeneral).toBeUndefined();
     });
   });
 

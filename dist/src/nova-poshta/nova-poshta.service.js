@@ -75,17 +75,6 @@ let NovaPoshtaService = class NovaPoshtaService {
         }
         return this.getWarehouses(apiKey, cityRef, postomatType.ref);
     }
-    async getSenderAddresses(apiKey, counterpartyRef) {
-        const addresses = await this.callMethod(apiKey, 'Counterparty', 'getCounterpartyAddresses', {
-            Ref: counterpartyRef,
-            CounterpartyProperty: 'Sender',
-        });
-        return addresses.map((address) => ({
-            ref: address.Ref,
-            description: address.Description,
-            cityRef: address.CityRef,
-        }));
-    }
     async createWaybill(apiKey, params) {
         const [result] = await this.callMethod(apiKey, 'InternetDocument', 'save', {
             DateTime: formatNovaPoshtaDate(new Date()),
@@ -93,9 +82,7 @@ let NovaPoshtaService = class NovaPoshtaService {
             PaymentMethod: 'Cash',
             CargoType: params.cargoType,
             ServiceType: params.serviceType,
-            SeatsAmount: WAYBILL_SEATS_AMOUNT,
-            Weight: WAYBILL_WEIGHT_KG,
-            VolumeGeneral: WAYBILL_VOLUME_M3,
+            ...this.buildDimensions(params.cargoType),
             Cost: String(params.cost),
             Description: params.description,
             Sender: params.senderCounterpartyRef,
@@ -122,9 +109,7 @@ let NovaPoshtaService = class NovaPoshtaService {
             PaymentMethod: 'Cash',
             CargoType: params.cargoType,
             ServiceType: params.serviceType,
-            SeatsAmount: WAYBILL_SEATS_AMOUNT,
-            Weight: WAYBILL_WEIGHT_KG,
-            VolumeGeneral: WAYBILL_VOLUME_M3,
+            ...this.buildDimensions(params.cargoType),
             Cost: String(params.cost),
             Description: params.description,
             Sender: params.senderCounterpartyRef,
@@ -151,6 +136,16 @@ let NovaPoshtaService = class NovaPoshtaService {
             throw new common_1.BadRequestException('No tracking info found for this waybill number');
         }
         return { statusCode: result.StatusCode, status: result.Status };
+    }
+    buildDimensions(cargoType) {
+        if (cargoType === 'Documents') {
+            return { SeatsAmount: WAYBILL_SEATS_AMOUNT };
+        }
+        return {
+            SeatsAmount: WAYBILL_SEATS_AMOUNT,
+            Weight: WAYBILL_WEIGHT_KG,
+            VolumeGeneral: WAYBILL_VOLUME_M3,
+        };
     }
     buildBackwardDeliveryData(codAmount) {
         if (codAmount === null) {
