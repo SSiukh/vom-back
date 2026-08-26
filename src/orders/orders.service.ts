@@ -132,7 +132,10 @@ export class OrdersService {
         totalAmount,
         dto.partialAmount ?? null,
       ),
-      description: this.buildWaybillDescription(items),
+      description:
+        shipmentType.code === 'documents'
+          ? 'Документи'
+          : this.buildWaybillDescription(items),
       recipientCityRef: dto.deliveryDetails.cityRef,
       recipientAddressRef,
       recipientName: recipientFullName,
