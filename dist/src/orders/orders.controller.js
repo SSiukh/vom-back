@@ -19,6 +19,7 @@ const throttler_1 = require("@nestjs/throttler");
 const orders_service_1 = require("./orders.service");
 const create_order_dto_1 = require("./dto/create-order.dto");
 const update_order_dto_1 = require("./dto/update-order.dto");
+const set_order_status_flags_dto_1 = require("./dto/set-order-status-flags.dto");
 const list_orders_query_dto_1 = require("./dto/list-orders-query.dto");
 const parse_object_id_pipe_1 = require("../shared/pipes/parse-object-id.pipe");
 const DEFAULT_PAGE = 1;
@@ -44,6 +45,9 @@ let OrdersController = class OrdersController {
     }
     syncStatus(id) {
         return this.ordersService.syncStatus(id);
+    }
+    setStatusFlags(id, dto) {
+        return this.ordersService.setStatusFlags(id, dto);
     }
     remove(id) {
         return this.ordersService.remove(id);
@@ -104,6 +108,14 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "syncStatus", null);
+__decorate([
+    (0, common_1.Patch)(':id/status-flags'),
+    __param(0, (0, common_1.Param)('id', parse_object_id_pipe_1.ParseObjectIdPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, set_order_status_flags_dto_1.SetOrderStatusFlagsDto]),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "setStatusFlags", null);
 __decorate([
     (0, throttler_1.Throttle)({
         default: {

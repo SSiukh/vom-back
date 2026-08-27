@@ -16,6 +16,8 @@ export declare class OrderResponseDto {
     npWaybillNumber: string | null;
     npWaybillRef: string | null;
     shipmentStatusId: string | null;
+    isPacked: boolean;
+    isOutOfStock: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

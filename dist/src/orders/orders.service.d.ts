@@ -3,6 +3,7 @@ import { EncryptionService } from '../shared/encryption/encryption.service';
 import { NovaPoshtaService } from '../nova-poshta/nova-poshta.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
 export declare class OrdersService {
@@ -17,6 +18,7 @@ export declare class OrdersService {
     findOne(id: string): Promise<OrderResponseDto>;
     remove(id: string): Promise<void>;
     syncStatus(id: string): Promise<OrderResponseDto>;
+    setStatusFlags(id: string, dto: SetOrderStatusFlagsDto): Promise<OrderResponseDto>;
     private resolveItems;
     private validateDeliveryDetails;
     private buildWaybillDescription;

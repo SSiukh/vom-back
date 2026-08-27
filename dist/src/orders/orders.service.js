@@ -93,7 +93,9 @@ let OrdersService = OrdersService_1 = class OrdersService {
             serviceType: 'WarehouseWarehouse',
             cost: totalAmount,
             codAmount: this.resolveCodAmount(paymentType.code, totalAmount, dto.partialAmount ?? null),
-            description: this.buildWaybillDescription(items),
+            description: shipmentType.code === 'documents'
+                ? 'Документи'
+                : this.buildWaybillDescription(items),
             recipientCityRef: dto.deliveryDetails.cityRef,
             recipientAddressRef,
             recipientName: recipientFullName,
@@ -360,6 +362,19 @@ let OrdersService = OrdersService_1 = class OrdersService {
         });
         return this.toResponseDto(updated);
     }
+    async setStatusFlags(id, dto) {
+        await this.findOrThrow(id);
+        const updated = await this.prisma.order.update({
+            where: { id },
+            data: {
+                ...(dto.isPacked !== undefined && { isPacked: dto.isPacked }),
+                ...(dto.isOutOfStock !== undefined && {
+                    isOutOfStock: dto.isOutOfStock,
+                }),
+            },
+        });
+        return this.toResponseDto(updated);
+    }
     async resolveItems(items, freedQuantityByProduct = new Map()) {
         const resolvedItems = [];
         const stockDecrements = [];
@@ -556,6 +571,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
             npWaybillNumber: order.npWaybillNumber,
             npWaybillRef: order.npWaybillRef,
             shipmentStatusId: order.shipmentStatusId,
+            isPacked: order.isPacked,
+            isOutOfStock: order.isOutOfStock,
             createdAt: order.createdAt,
             updatedAt: order.updatedAt,
         };

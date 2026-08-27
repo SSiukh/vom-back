@@ -37,10 +37,10 @@ let NovaPoshtaService = class NovaPoshtaService {
         };
     }
     async searchCities(apiKey, query) {
-        const cities = await this.callMethod(apiKey, 'Address', 'getCities', { FindByString: query, Limit: '20' });
-        return cities.map((city) => ({
-            ref: city.Ref,
-            description: city.Description,
+        const [result] = await this.callMethod(apiKey, 'Address', 'searchSettlements', { CityName: query, Limit: '20' });
+        return (result?.Addresses ?? []).map((address) => ({
+            ref: address.DeliveryCity,
+            description: address.Present,
         }));
     }
     async getWarehouseTypes(apiKey) {

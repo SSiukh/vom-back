@@ -29,6 +29,8 @@ class OrderResponseDto {
     npWaybillNumber;
     npWaybillRef;
     shipmentStatusId;
+    isPacked;
+    isOutOfStock;
     createdAt;
     updatedAt;
 }
@@ -89,6 +91,14 @@ __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
 ], OrderResponseDto.prototype, "shipmentStatusId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Позначка "Спаковано"' }),
+    __metadata("design:type", Boolean)
+], OrderResponseDto.prototype, "isPacked", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Позначка "Відсутній товар"' }),
+    __metadata("design:type", Boolean)
+], OrderResponseDto.prototype, "isOutOfStock", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)
