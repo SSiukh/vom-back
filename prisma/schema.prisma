@@ -201,6 +201,8 @@ model Order {
   npWaybillRef     String?         @map("np_waybill_ref")
   shipmentStatusId String?         @map("shipment_status") @db.ObjectId
   shipmentStatus   ShipmentStatus? @relation(fields: [shipmentStatusId], references: [id])
+  isPacked         Boolean         @default(false) @map("is_packed")
+  isOutOfStock     Boolean         @default(false) @map("is_out_of_stock")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 

@@ -33,6 +33,16 @@ interface RefDescriptionResult {
   Description: string;
 }
 
+interface SettlementAddressResult {
+  Present: string;
+  DeliveryCity: string;
+}
+
+interface SettlementSearchResult {
+  TotalCount: number;
+  Addresses: SettlementAddressResult[];
+}
+
 export interface SenderVerificationResult {
   counterpartyRef: string;
   contactPersonRef: string;
@@ -131,16 +141,16 @@ export class NovaPoshtaService {
   }
 
   async searchCities(apiKey: string, query: string): Promise<AddressOption[]> {
-    const cities = await this.callMethod<RefDescriptionResult>(
+    const [result] = await this.callMethod<SettlementSearchResult>(
       apiKey,
       'Address',
-      'getCities',
-      { FindByString: query, Limit: '20' },
+      'searchSettlements',
+      { CityName: query, Limit: '20' },
     );
 
-    return cities.map((city) => ({
-      ref: city.Ref,
-      description: city.Description,
+    return (result?.Addresses ?? []).map((address) => ({
+      ref: address.DeliveryCity,
+      description: address.Present,
     }));
   }
 

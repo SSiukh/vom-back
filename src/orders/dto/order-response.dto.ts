@@ -46,6 +46,12 @@ export class OrderResponseDto {
   @ApiProperty({ nullable: true })
   shipmentStatusId: string | null;
 
+  @ApiProperty({ description: 'Позначка "Спаковано"' })
+  isPacked: boolean;
+
+  @ApiProperty({ description: 'Позначка "Відсутній товар"' })
+  isOutOfStock: boolean;
+
   @ApiProperty()
   createdAt: Date;
 

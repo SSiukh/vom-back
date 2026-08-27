@@ -97,12 +97,45 @@ describe('NovaPoshtaService', () => {
   }
 
   describe('searchCities', () => {
-    it('maps Ref/Description to ref/description', async () => {
-      mockNovaPoshtaResponse([{ Ref: 'city-ref', Description: 'Київ' }]);
+    it('maps DeliveryCity/Present to ref/description, including region/district', async () => {
+      mockNovaPoshtaResponse([
+        {
+          TotalCount: 1,
+          Addresses: [
+            {
+              Present: 'м. Львів, Львівська обл.',
+              DeliveryCity: 'city-ref',
+            },
+          ],
+        },
+      ]);
 
-      const result = await service.searchCities('test-api-key', 'Київ');
+      const result = await service.searchCities('test-api-key', 'Львів');
 
-      expect(result).toEqual([{ ref: 'city-ref', description: 'Київ' }]);
+      expect(result).toEqual([
+        { ref: 'city-ref', description: 'м. Львів, Львівська обл.' },
+      ]);
+      const parsedBody = JSON.parse(
+        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+      ) as {
+        modelName: string;
+        calledMethod: string;
+        methodProperties: Record<string, unknown>;
+      };
+      expect(parsedBody.modelName).toBe('Address');
+      expect(parsedBody.calledMethod).toBe('searchSettlements');
+      expect(parsedBody.methodProperties).toEqual({
+        CityName: 'Львів',
+        Limit: '20',
+      });
+    });
+
+    it('returns an empty array when Nova Poshta returns no matching settlements', async () => {
+      mockNovaPoshtaResponse([]);
+
+      const result = await service.searchCities('test-api-key', 'Xyz');
+
+      expect(result).toEqual([]);
     });
   });
 

@@ -77,6 +77,8 @@ describe('OrdersService', () => {
     npWaybillNumber: '20450000000000',
     npWaybillRef: 'waybill-ref',
     shipmentStatusId: null,
+    isPacked: false,
+    isOutOfStock: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
   };
@@ -963,6 +965,55 @@ describe('OrdersService', () => {
         where: { id: 'order-id' },
         data: { shipmentStatusId: storedOrder.shipmentStatusId },
       });
+    });
+  });
+
+  describe('setStatusFlags', () => {
+    it('sets isPacked when provided', async () => {
+      await service.setStatusFlags('order-id', { isPacked: true });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-id' },
+        data: { isPacked: true },
+      });
+    });
+
+    it('sets isOutOfStock when provided', async () => {
+      await service.setStatusFlags('order-id', { isOutOfStock: true });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-id' },
+        data: { isOutOfStock: true },
+      });
+    });
+
+    it('sets both flags when both are provided', async () => {
+      await service.setStatusFlags('order-id', {
+        isPacked: true,
+        isOutOfStock: false,
+      });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-id' },
+        data: { isPacked: true, isOutOfStock: false },
+      });
+    });
+
+    it('updates nothing when neither flag is provided', async () => {
+      await service.setStatusFlags('order-id', {});
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-id' },
+        data: {},
+      });
+    });
+
+    it('throws NotFoundException for a missing order', async () => {
+      prisma.order.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.setStatusFlags('missing-id', { isPacked: true }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

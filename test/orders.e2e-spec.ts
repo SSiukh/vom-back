@@ -14,6 +14,8 @@ interface OrderResponseBody {
   recipient: { lastName: string };
   npWaybillNumber: string | null;
   shipmentStatusId: string | null;
+  isPacked: boolean;
+  isOutOfStock: boolean;
 }
 
 interface ListOrdersResponseBody {
@@ -442,6 +444,33 @@ describe('Orders (e2e)', () => {
     expect(body.shipmentStatusId).toBe(deliveredStatus.id);
 
     await prisma.order.deleteMany({ where: { id: created.id } });
+  });
+
+  it('sets isPacked/isOutOfStock independently of Nova Poshta status', async () => {
+    const response = await request(app.getHttpServer())
+      .patch(`/orders/${seededOrderId}/status-flags`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ isPacked: true })
+      .expect(200);
+    const body = response.body as OrderResponseBody;
+
+    expect(body.isPacked).toBe(true);
+    expect(body.isOutOfStock).toBe(false);
+
+    const secondResponse = await request(app.getHttpServer())
+      .patch(`/orders/${seededOrderId}/status-flags`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ isOutOfStock: true })
+      .expect(200);
+    const secondBody = secondResponse.body as OrderResponseBody;
+
+    expect(secondBody.isPacked).toBe(true);
+    expect(secondBody.isOutOfStock).toBe(true);
+
+    await prisma.order.update({
+      where: { id: seededOrderId },
+      data: { isPacked: false, isOutOfStock: false },
+    });
   });
 
   it('deletes an order, calls Nova Poshta waybill delete and restores stock', async () => {

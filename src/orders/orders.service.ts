@@ -14,6 +14,7 @@ import {
 } from '../nova-poshta/nova-poshta.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
 import { OrderItemDto } from './dto/order-item.dto';
 import { DeliveryDetailsDto } from './dto/delivery-details.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
@@ -510,6 +511,25 @@ export class OrdersService {
     return this.toResponseDto(updated);
   }
 
+  async setStatusFlags(
+    id: string,
+    dto: SetOrderStatusFlagsDto,
+  ): Promise<OrderResponseDto> {
+    await this.findOrThrow(id);
+
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data: {
+        ...(dto.isPacked !== undefined && { isPacked: dto.isPacked }),
+        ...(dto.isOutOfStock !== undefined && {
+          isOutOfStock: dto.isOutOfStock,
+        }),
+      },
+    });
+
+    return this.toResponseDto(updated);
+  }
+
   private async resolveItems(
     items: OrderItemDto[],
     freedQuantityByProduct: Map<string, number> = new Map(),
@@ -803,6 +823,8 @@ export class OrdersService {
       npWaybillNumber: order.npWaybillNumber,
       npWaybillRef: order.npWaybillRef,
       shipmentStatusId: order.shipmentStatusId,
+      isPacked: order.isPacked,
+      isOutOfStock: order.isOutOfStock,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

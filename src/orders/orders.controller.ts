@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
@@ -83,6 +84,14 @@ export class OrdersController {
     @Param('id', ParseObjectIdPipe) id: string,
   ): Promise<OrderResponseDto> {
     return this.ordersService.syncStatus(id);
+  }
+
+  @Patch(':id/status-flags')
+  setStatusFlags(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetOrderStatusFlagsDto,
+  ): Promise<OrderResponseDto> {
+    return this.ordersService.setStatusFlags(id, dto);
   }
 
   @Throttle({

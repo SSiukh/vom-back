@@ -767,3 +767,47 @@ dominate once foundations, Senders, and Products are in place.
       fields/endpoint) and `.claude/artifacts/frontend/VOM_SYSTEMS.md`
       ("Сторінка внесення відправника" gained city/warehouse rows) — both
       also copied to the sibling `vom-front` project's artifact copies.
+
+## Order status flags + city search region fix
+
+- [x] **Done.** Two independent, user-requested fixes:
+      (1) **`isPacked`/`isOutOfStock` order flags.** User wants two
+      internal warehouse-side statuses ("Спаковано"/"Відсутній товар")
+      settable on the frontend after order creation. **User confirmed
+      directly** this is a different axis from `shipmentStatusId` (which
+      auto-syncs from real Nova Poshta tracking) and explicitly does
+      **not** want a dictionary for it — "просто boolean значення в
+      сутності замовлення, яке фронт зможе поіменувати." Shipped: `Order`
+      gained `isPacked`/`isOutOfStock` (both `Boolean @default(false)`,
+      pushed to Atlas — a no-op for existing Mongo documents, Prisma
+      applies the default client-side), a new
+      `PATCH /orders/:id/status-flags` (`SetOrderStatusFlagsDto
+      {isPacked?, isOutOfStock?}`, partial update — an omitted field
+      stays untouched, not reset to `false`; no throttle, since it makes
+      no external call, same reasoning as Expenses/CRM). Unit + e2e tests
+      added; `reviewer` pass found one gap (missing e2e coverage) — fixed.
+      (2) **City search now returns область/район, not just the bare
+      locality name** (real bug: ambiguous when multiple same-named
+      localities exist across different oblasts). Root cause confirmed
+      via live read-only API calls (not guessed): `Address.getCities` (the
+      old implementation) has no district field and is genuinely
+      ambiguous; `Address.searchSettlements` returns a pre-formatted
+      `Present` string per result (e.g. `"с. Брюховичі, Перемишлянський
+      р-н, Львівська обл."`) plus a `DeliveryCity` ref — live-confirmed to
+      be the exact same ref value `Address.getCities` would have returned,
+      i.e. still the correct ref for `/warehouses`, `/streets`,
+      `/postomats`, and everywhere else a `cityRef` is used. Shipped:
+      `NovaPoshtaService.searchCities()` now calls `Address.
+      searchSettlements` and maps `DeliveryCity`→`ref`, `Present`→
+      `description`. Docs (`API_REFERENCE.md` §11) explain the format
+      change and the ref semantics; synced to `vom-front`.
+      **Unrelated but surfaced during this work — flagged, not fixed, per
+      user's explicit instruction to defer:** the CRM e2e suite briefly
+      failed because the shared Atlas database (`vom-back` on
+      `vom.gv4akvo.mongodb.net`) now holds real production `Order`
+      documents (the business has started real usage) alongside e2e-
+      seeded fixtures, inflating a filtered-count assertion. Confirmed
+      nothing was created/modified/deleted by the test run itself — pure
+      read-side collision. **User decided:** ignore for now, a separate
+      test database/cluster will be set up later. Not something to fix
+      silently or route around in the meantime.
