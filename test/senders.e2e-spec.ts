@@ -106,6 +106,31 @@ describe('Senders (e2e)', () => {
       .expect(400);
   });
 
+  it('rejects cityRef without warehouseRef', () => {
+    return request(app.getHttpServer())
+      .post('/senders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ apiKey: createBody.apiKey, cityRef: createBody.cityRef })
+      .expect(400);
+  });
+
+  it('creates a sender with no address when cityRef/warehouseRef are both omitted', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/senders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ apiKey: createBody.apiKey })
+      .expect(201);
+    const body = response.body as SenderResponseBody;
+
+    createdIds.push(body.id);
+
+    const addressesResponse = await request(app.getHttpServer())
+      .get(`/senders/${body.id}/addresses`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(addressesResponse.body).toEqual([]);
+  });
+
   it('verifies an API key without persisting anything', async () => {
     const response = await request(app.getHttpServer())
       .post('/senders/verify')

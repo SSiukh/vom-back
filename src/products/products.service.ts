@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { escapeRegExp } from '../shared/utils/escape-regexp';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
@@ -56,8 +57,14 @@ export class ProductsService {
     page: number,
     pageSize: number,
     typeId?: string,
+    name?: string,
   ): Promise<ListProductsResponseDto> {
-    const where = typeId ? { typeId } : {};
+    const where = {
+      ...(typeId && { typeId }),
+      ...(name && {
+        name: { contains: escapeRegExp(name), mode: 'insensitive' as const },
+      }),
+    };
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({

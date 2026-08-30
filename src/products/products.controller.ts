@@ -49,6 +49,7 @@ export class ProductsController {
       query.page ?? DEFAULT_PAGE,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
       query.typeId,
+      query.name,
     );
   }
 

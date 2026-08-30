@@ -99,9 +99,16 @@ export interface ShipmentStatus {
   status: string;
 }
 
+export interface BulkShipmentStatus {
+  waybillNumber: string;
+  statusCode: string;
+  status: string;
+}
+
 const WAYBILL_SEATS_AMOUNT = '1';
 const WAYBILL_WEIGHT_KG = '0.5';
 const WAYBILL_VOLUME_M3 = '0.0004';
+const WAYBILL_STATUS_CHUNK_SIZE = 50;
 
 @Injectable()
 export class NovaPoshtaService {
@@ -310,6 +317,33 @@ export class NovaPoshtaService {
     }
 
     return { statusCode: result.StatusCode, status: result.Status };
+  }
+
+  async getShipmentStatuses(
+    apiKey: string,
+    waybillNumbers: string[],
+  ): Promise<BulkShipmentStatus[]> {
+    const chunks: string[][] = [];
+    for (let i = 0; i < waybillNumbers.length; i += WAYBILL_STATUS_CHUNK_SIZE) {
+      chunks.push(waybillNumbers.slice(i, i + WAYBILL_STATUS_CHUNK_SIZE));
+    }
+
+    const chunkResults = await Promise.all(
+      chunks.map((chunk) =>
+        this.callMethod<{ Number: string; StatusCode: string; Status: string }>(
+          apiKey,
+          'TrackingDocument',
+          'getStatusDocuments',
+          { Documents: chunk.map((number) => ({ DocumentNumber: number })) },
+        ),
+      ),
+    );
+
+    return chunkResults.flat().map((result) => ({
+      waybillNumber: result.Number,
+      statusCode: result.StatusCode,
+      status: result.Status,
+    }));
   }
 
   private buildDimensions(cargoType: string): {

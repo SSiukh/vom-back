@@ -17,6 +17,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
+import { BulkSyncStatusResponseDto } from './dto/bulk-sync-status-response.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
 import { ParseObjectIdPipe } from '../shared/pipes/parse-object-id.pipe';
@@ -57,6 +58,17 @@ export class OrdersController {
     @Param('id', ParseObjectIdPipe) id: string,
   ): Promise<OrderResponseDto> {
     return this.ordersService.findOne(id);
+  }
+
+  @Throttle({
+    default: {
+      limit: NOVA_POSHTA_CALL_THROTTLE_LIMIT,
+      ttl: NOVA_POSHTA_CALL_THROTTLE_TTL_MS,
+    },
+  })
+  @Patch('sync-statuses')
+  syncAllStatuses(): Promise<BulkSyncStatusResponseDto> {
+    return this.ordersService.syncAllStatuses();
   }
 
   @Throttle({

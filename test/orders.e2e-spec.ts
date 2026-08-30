@@ -32,6 +32,7 @@ describe('Orders (e2e)', () => {
   let updateWaybillMock: jest.Mock;
   let deleteWaybillMock: jest.Mock;
   let getShipmentStatusMock: jest.Mock;
+  let getShipmentStatusesMock: jest.Mock;
   let seededOrderId: string;
   let seededSenderId: string;
   let seededProductId: string;
@@ -50,6 +51,7 @@ describe('Orders (e2e)', () => {
     getShipmentStatusMock = jest
       .fn()
       .mockResolvedValue({ statusCode: '7', status: 'В дорозі' });
+    getShipmentStatusesMock = jest.fn().mockResolvedValue([]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -60,6 +62,7 @@ describe('Orders (e2e)', () => {
         updateWaybill: updateWaybillMock,
         deleteWaybill: deleteWaybillMock,
         getShipmentStatus: getShipmentStatusMock,
+        getShipmentStatuses: getShipmentStatusesMock,
       })
       .compile();
 
@@ -442,6 +445,85 @@ describe('Orders (e2e)', () => {
       'e2e-status-waybill-number',
     );
     expect(body.shipmentStatusId).toBe(deliveredStatus.id);
+
+    await prisma.order.deleteMany({ where: { id: created.id } });
+  });
+
+  it('syncs shipment statuses for every order with a waybill in one bulk call', async () => {
+    const deliveredStatus = await prisma.shipmentStatus.findUniqueOrThrow({
+      where: { code: 'delivered' },
+    });
+    const created = await prisma.order.create({
+      data: {
+        shipmentTypeId,
+        paymentTypeId,
+        totalAmount: 100,
+        items: [
+          {
+            productId: null,
+            productTypeId: stickerProductTypeId,
+            nameSnapshot: 'E2E Наліпка',
+            photoUrlSnapshot: null,
+            price: 100,
+            isPromo: false,
+            quantity: 1,
+            subtotal: 100,
+          },
+        ],
+        senderId: seededSenderId,
+        senderAddressRef: 'e2e-address-ref',
+        recipient: {
+          phone: '+380501234567',
+          lastName: 'Для масової синхронізації',
+          firstName: 'Тест',
+          middleName: null,
+        },
+        deliveryTypeId,
+        deliveryDetails: {
+          cityRef: 'e2e-city-ref',
+          warehouseRef: 'e2e-warehouse-ref',
+        },
+        npWaybillNumber: 'e2e-bulk-sync-waybill-number',
+        npWaybillRef: 'e2e-bulk-sync-waybill-ref',
+      },
+    });
+
+    getShipmentStatusesMock.mockImplementation(
+      (_apiKey: string, waybillNumbers: string[]) => {
+        if (waybillNumbers.includes('e2e-bulk-sync-waybill-number')) {
+          return Promise.resolve([
+            {
+              waybillNumber: 'e2e-bulk-sync-waybill-number',
+              statusCode: '7',
+              status: 'Прибув',
+            },
+          ]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+
+    const response = await request(app.getHttpServer())
+      .patch('/orders/sync-statuses')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    const body = response.body as {
+      totalOrders: number;
+      updatedCount: number;
+      unmappedCount: number;
+    };
+
+    expect(getShipmentStatusesMock).toHaveBeenCalledWith(
+      'e2e-raw-api-key',
+      expect.arrayContaining(['e2e-bulk-sync-waybill-number']),
+    );
+    expect(body.totalOrders).toBeGreaterThanOrEqual(1);
+    expect(body.updatedCount).toBeGreaterThanOrEqual(1);
+
+    const updated = await prisma.order.findUniqueOrThrow({
+      where: { id: created.id },
+    });
+    expect(updated.shipmentStatusId).toBe(deliveredStatus.id);
 
     await prisma.order.deleteMany({ where: { id: created.id } });
   });

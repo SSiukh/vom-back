@@ -136,6 +136,28 @@ describe('Products (e2e)', () => {
     expect(body.items.some((item) => createdIds.includes(item.id))).toBe(true);
   });
 
+  it('lists the created product, searchable by name case-insensitively', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/products')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ name: 'наліпка' })
+      .expect(200);
+    const body = response.body as ListProductsResponseBody;
+
+    expect(body.items.some((item) => createdIds.includes(item.id))).toBe(true);
+  });
+
+  it('treats regex metacharacters in the name filter as literal text', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/products')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ name: '.*' })
+      .expect(200);
+    const body = response.body as ListProductsResponseBody;
+
+    expect(body.items.some((item) => createdIds.includes(item.id))).toBe(false);
+  });
+
   it('gets product detail by id', async () => {
     const [id] = createdIds;
 

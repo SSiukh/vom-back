@@ -170,6 +170,20 @@ describe('SendersService', () => {
         service.create({ ...createDto, warehouseRef: 'unknown-ref' }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('creates a sender with no address when cityRef/warehouseRef are both omitted', async () => {
+      const { cityRef, warehouseRef, ...dtoWithoutAddress } = createDto;
+      void cityRef;
+      void warehouseRef;
+
+      await service.create(dtoWithoutAddress);
+
+      expect(novaPoshta.getWarehouses).not.toHaveBeenCalled();
+      const [[{ data }]] = prisma.sender.create.mock.calls as [
+        [{ data: { addresses: unknown[] } }],
+      ];
+      expect(data.addresses).toEqual([]);
+    });
   });
 
   describe('findAll', () => {

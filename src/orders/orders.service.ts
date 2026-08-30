@@ -15,6 +15,7 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
+import { BulkSyncStatusResponseDto } from './dto/bulk-sync-status-response.dto';
 import { OrderItemDto } from './dto/order-item.dto';
 import { DeliveryDetailsDto } from './dto/delivery-details.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
@@ -509,6 +510,90 @@ export class OrdersService {
     });
 
     return this.toResponseDto(updated);
+  }
+
+  async syncAllStatuses(): Promise<BulkSyncStatusResponseDto> {
+    const orders = await this.prisma.order.findMany({
+      where: { npWaybillNumber: { not: null } },
+    });
+
+    if (orders.length === 0) {
+      return { totalOrders: 0, updatedCount: 0, unmappedCount: 0 };
+    }
+
+    const ordersBySender = new Map<string, Order[]>();
+    for (const order of orders) {
+      const existing = ordersBySender.get(order.senderId) ?? [];
+      existing.push(order);
+      ordersBySender.set(order.senderId, existing);
+    }
+
+    const shipmentStatuses = await this.prisma.shipmentStatus.findMany();
+
+    let updatedCount = 0;
+    let unmappedCount = 0;
+
+    for (const [senderId, senderOrders] of ordersBySender) {
+      const sender = await this.prisma.sender.findUnique({
+        where: { id: senderId },
+      });
+      if (!sender) {
+        unmappedCount += senderOrders.length;
+        this.logger.warn(
+          `Skipping status sync for ${senderOrders.length} order(s) — sender ${senderId} no longer exists`,
+        );
+        continue;
+      }
+
+      const apiKey = this.encryption.decrypt(sender.apiKey);
+      const waybillNumbers = senderOrders
+        .map((order) => order.npWaybillNumber)
+        .filter((number): number is string => number !== null);
+
+      const statuses = await this.novaPoshta.getShipmentStatuses(
+        apiKey,
+        waybillNumbers,
+      );
+      const statusByWaybill = new Map(
+        statuses.map((status) => [status.waybillNumber, status]),
+      );
+
+      for (const order of senderOrders) {
+        const status = order.npWaybillNumber
+          ? statusByWaybill.get(order.npWaybillNumber)
+          : undefined;
+        if (!status) {
+          unmappedCount += 1;
+          this.logger.warn(
+            `No Nova Poshta tracking status returned for order ${order.id} (waybill ${order.npWaybillNumber}) — leaving it unchanged`,
+          );
+          continue;
+        }
+
+        const shipmentStatus = shipmentStatuses.find((known) =>
+          known.npStatusCodes.includes(status.statusCode),
+        );
+        if (!shipmentStatus) {
+          unmappedCount += 1;
+          this.logger.warn(
+            `Nova Poshta status code "${status.statusCode}" (${status.status}) for order ${order.id} does not map to any known shipment status — leaving it unchanged`,
+          );
+          continue;
+        }
+
+        if (shipmentStatus.id === order.shipmentStatusId) {
+          continue;
+        }
+
+        await this.prisma.order.update({
+          where: { id: order.id },
+          data: { shipmentStatusId: shipmentStatus.id },
+        });
+        updatedCount += 1;
+      }
+    }
+
+    return { totalOrders: orders.length, updatedCount, unmappedCount };
   }
 
   async setStatusFlags(

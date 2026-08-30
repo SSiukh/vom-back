@@ -160,6 +160,41 @@ describe('ProductsService', () => {
         expect.objectContaining({ where: {} }),
       );
     });
+
+    it('filters by name case-insensitively when provided', async () => {
+      await service.findAll(1, 10, undefined, 'наліпка');
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'наліпка', mode: 'insensitive' } },
+        }),
+      );
+    });
+
+    it('combines typeId and name filters when both are given', async () => {
+      await service.findAll(1, 10, catalogType.id, 'наліпка');
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            typeId: catalogType.id,
+            name: { contains: 'наліпка', mode: 'insensitive' },
+          },
+        }),
+      );
+    });
+
+    it('escapes regex metacharacters in the name filter so they match literally', async () => {
+      await service.findAll(1, 10, undefined, '.*(a|b)');
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            name: { contains: '\\.\\*\\(a\\|b\\)', mode: 'insensitive' },
+          },
+        }),
+      );
+    });
   });
 
   describe('findOne', () => {

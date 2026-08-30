@@ -467,4 +467,88 @@ describe('NovaPoshtaService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('getShipmentStatuses', () => {
+    it('sends one Documents array for all waybill numbers and maps results back by Number', async () => {
+      mockNovaPoshtaResponse([
+        { Number: '111', StatusCode: '7', Status: 'Прибув у відділення' },
+        { Number: '222', StatusCode: '9', Status: 'Отримано' },
+      ]);
+
+      const result = await service.getShipmentStatuses('test-api-key', [
+        '111',
+        '222',
+      ]);
+
+      expect(result).toEqual([
+        {
+          waybillNumber: '111',
+          statusCode: '7',
+          status: 'Прибув у відділення',
+        },
+        { waybillNumber: '222', statusCode: '9', status: 'Отримано' },
+      ]);
+      const parsedBody = JSON.parse(
+        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+      ) as {
+        modelName: string;
+        calledMethod: string;
+        methodProperties: Record<string, unknown>;
+      };
+      expect(parsedBody.modelName).toBe('TrackingDocument');
+      expect(parsedBody.calledMethod).toBe('getStatusDocuments');
+      expect(parsedBody.methodProperties).toEqual({
+        Documents: [{ DocumentNumber: '111' }, { DocumentNumber: '222' }],
+      });
+    });
+
+    it('omits an entry entirely when Nova Poshta has no result for that waybill number', async () => {
+      mockNovaPoshtaResponse([
+        { Number: '111', StatusCode: '7', Status: 'Прибув у відділення' },
+      ]);
+
+      const result = await service.getShipmentStatuses('test-api-key', [
+        '111',
+        'invalid-number',
+      ]);
+
+      expect(result).toEqual([
+        {
+          waybillNumber: '111',
+          statusCode: '7',
+          status: 'Прибув у відділення',
+        },
+      ]);
+    });
+
+    it('splits more than 50 waybill numbers into multiple chunked requests', async () => {
+      const waybillNumbers = Array.from({ length: 75 }, (_, i) => String(i));
+      mockNovaPoshtaResponse(
+        waybillNumbers
+          .slice(0, 50)
+          .map((n) => ({ Number: n, StatusCode: '7', Status: 'X' })),
+      );
+      mockNovaPoshtaResponse(
+        waybillNumbers
+          .slice(50)
+          .map((n) => ({ Number: n, StatusCode: '7', Status: 'X' })),
+      );
+
+      const result = await service.getShipmentStatuses(
+        'test-api-key',
+        waybillNumbers,
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result).toHaveLength(75);
+      const firstBody = JSON.parse(
+        (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+      ) as { methodProperties: { Documents: unknown[] } };
+      const secondBody = JSON.parse(
+        (fetchMock.mock.calls[1] as [string, { body: string }])[1].body,
+      ) as { methodProperties: { Documents: unknown[] } };
+      expect(firstBody.methodProperties.Documents).toHaveLength(50);
+      expect(secondBody.methodProperties.Documents).toHaveLength(25);
+    });
+  });
 });

@@ -3,12 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { SenderAddress } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../shared/encryption/encryption.service';
-import {
-  AddressOption,
-  NovaPoshtaService,
-} from '../nova-poshta/nova-poshta.service';
+import { NovaPoshtaService } from '../nova-poshta/nova-poshta.service';
 import { VerifySenderDto } from './dto/verify-sender.dto';
 import { CreateSenderDto } from './dto/create-sender.dto';
 import { SetSenderWarehouseDto } from './dto/set-sender-warehouse.dto';
@@ -34,11 +32,16 @@ export class SendersService {
 
   async create(dto: CreateSenderDto): Promise<SenderResponseDto> {
     const verified = await this.novaPoshta.verifySender(dto.apiKey);
-    const warehouse = await this.resolveWarehouse(
-      dto.apiKey,
-      dto.cityRef,
-      dto.warehouseRef,
-    );
+    const addresses =
+      dto.cityRef && dto.warehouseRef
+        ? [
+            await this.resolveWarehouse(
+              dto.apiKey,
+              dto.cityRef,
+              dto.warehouseRef,
+            ),
+          ]
+        : [];
 
     const sender = await this.prisma.sender.create({
       data: {
@@ -47,14 +50,7 @@ export class SendersService {
         phone: verified.phone,
         npCounterpartyRef: verified.counterpartyRef,
         npContactPersonRef: verified.contactPersonRef,
-        addresses: [
-          {
-            npAddressRef: warehouse.ref,
-            description: warehouse.description,
-            cityRef: dto.cityRef,
-            isDeactivated: false,
-          },
-        ],
+        addresses,
         isActive: false,
         isDeactivated: false,
       },
@@ -137,7 +133,7 @@ export class SendersService {
   ): Promise<SenderResponseDto> {
     const sender = await this.findActiveOrThrow(id);
     const apiKey = this.encryption.decrypt(sender.apiKey);
-    const warehouse = await this.resolveWarehouse(
+    const address = await this.resolveWarehouse(
       apiKey,
       dto.cityRef,
       dto.warehouseRef,
@@ -145,16 +141,7 @@ export class SendersService {
 
     const updated = await this.prisma.sender.update({
       where: { id: sender.id },
-      data: {
-        addresses: [
-          {
-            npAddressRef: warehouse.ref,
-            description: warehouse.description,
-            cityRef: dto.cityRef,
-            isDeactivated: false,
-          },
-        ],
-      },
+      data: { addresses: [address] },
     });
 
     return this.toResponseDto(updated);
@@ -173,7 +160,7 @@ export class SendersService {
     apiKey: string,
     cityRef: string,
     warehouseRef: string,
-  ): Promise<AddressOption> {
+  ): Promise<SenderAddress> {
     const warehouses = await this.novaPoshta.getWarehouses(apiKey, cityRef);
     const warehouse = warehouses.find((option) => option.ref === warehouseRef);
     if (!warehouse) {
@@ -182,7 +169,12 @@ export class SendersService {
       );
     }
 
-    return warehouse;
+    return {
+      npAddressRef: warehouse.ref,
+      description: warehouse.description,
+      cityRef,
+      isDeactivated: false,
+    };
   }
 
   private async findActiveOrThrow(id: string): Promise<Sender> {

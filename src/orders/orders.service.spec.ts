@@ -28,7 +28,7 @@ describe('OrdersService', () => {
     sender: { findFirst: jest.Mock; findUnique: jest.Mock };
     productType: { findUnique: jest.Mock };
     product: { findUnique: jest.Mock; update: jest.Mock };
-    shipmentStatus: { findFirst: jest.Mock };
+    shipmentStatus: { findFirst: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let encryption: { decrypt: jest.Mock };
@@ -37,6 +37,7 @@ describe('OrdersService', () => {
     updateWaybill: jest.Mock;
     deleteWaybill: jest.Mock;
     getShipmentStatus: jest.Mock;
+    getShipmentStatuses: jest.Mock;
   };
 
   const storedOrder = {
@@ -166,6 +167,7 @@ describe('OrdersService', () => {
       },
       shipmentStatus: {
         findFirst: jest.fn().mockResolvedValue(shipmentStatus),
+        findMany: jest.fn().mockResolvedValue([shipmentStatus]),
       },
       $transaction: jest
         .fn()
@@ -182,6 +184,7 @@ describe('OrdersService', () => {
       getShipmentStatus: jest
         .fn()
         .mockResolvedValue({ statusCode: '7', status: 'В дорозі' }),
+      getShipmentStatuses: jest.fn().mockResolvedValue([]),
     };
 
     const module = await Test.createTestingModule({
@@ -965,6 +968,136 @@ describe('OrdersService', () => {
         where: { id: 'order-id' },
         data: { shipmentStatusId: storedOrder.shipmentStatusId },
       });
+    });
+  });
+
+  describe('syncAllStatuses', () => {
+    it('returns zero counts when no orders have a waybill number', async () => {
+      prisma.order.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.syncAllStatuses();
+
+      expect(result).toEqual({
+        totalOrders: 0,
+        updatedCount: 0,
+        unmappedCount: 0,
+      });
+      expect(novaPoshta.getShipmentStatuses).not.toHaveBeenCalled();
+    });
+
+    it('groups orders by sender and calls getShipmentStatuses once per sender', async () => {
+      prisma.order.findMany.mockResolvedValueOnce([
+        {
+          ...storedOrder,
+          id: 'order-1',
+          senderId: 'sender-id',
+          npWaybillNumber: '111',
+        },
+        {
+          ...storedOrder,
+          id: 'order-2',
+          senderId: 'sender-id',
+          npWaybillNumber: '222',
+        },
+        {
+          ...storedOrder,
+          id: 'order-3',
+          senderId: 'other-sender-id',
+          npWaybillNumber: '333',
+        },
+      ]);
+      prisma.sender.findUnique.mockImplementation(
+        ({ where }: { where: { id: string } }) =>
+          Promise.resolve({ ...sender, id: where.id }),
+      );
+
+      await service.syncAllStatuses();
+
+      expect(novaPoshta.getShipmentStatuses).toHaveBeenCalledTimes(2);
+      expect(novaPoshta.getShipmentStatuses).toHaveBeenCalledWith(
+        'decrypted-api-key',
+        ['111', '222'],
+      );
+      expect(novaPoshta.getShipmentStatuses).toHaveBeenCalledWith(
+        'decrypted-api-key',
+        ['333'],
+      );
+    });
+
+    it('updates shipmentStatusId only when it actually changes, and reports accurate counts', async () => {
+      prisma.order.findMany.mockResolvedValueOnce([
+        {
+          ...storedOrder,
+          id: 'order-1',
+          npWaybillNumber: '111',
+          shipmentStatusId: null,
+        },
+        {
+          ...storedOrder,
+          id: 'order-2',
+          npWaybillNumber: '222',
+          shipmentStatusId: 'shipment-status-id',
+        },
+        {
+          ...storedOrder,
+          id: 'order-3',
+          npWaybillNumber: '333',
+          shipmentStatusId: null,
+        },
+        {
+          ...storedOrder,
+          id: 'order-4',
+          npWaybillNumber: '444',
+          shipmentStatusId: null,
+        },
+      ]);
+      novaPoshta.getShipmentStatuses.mockResolvedValueOnce([
+        { waybillNumber: '111', statusCode: '7', status: 'X' },
+        { waybillNumber: '222', statusCode: '7', status: 'X' },
+        { waybillNumber: '333', statusCode: '999', status: 'Unknown' },
+      ]);
+
+      const result = await service.syncAllStatuses();
+
+      expect(result).toEqual({
+        totalOrders: 4,
+        updatedCount: 1,
+        unmappedCount: 2,
+      });
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        data: { shipmentStatusId: 'shipment-status-id' },
+      });
+      expect(prisma.order.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'order-2' } }),
+      );
+    });
+
+    it('counts every order for a sender as unmapped when the sender no longer exists', async () => {
+      prisma.order.findMany.mockResolvedValueOnce([
+        {
+          ...storedOrder,
+          id: 'order-1',
+          senderId: 'missing-sender',
+          npWaybillNumber: '111',
+        },
+        {
+          ...storedOrder,
+          id: 'order-2',
+          senderId: 'missing-sender',
+          npWaybillNumber: '222',
+        },
+      ]);
+      prisma.sender.findUnique.mockResolvedValueOnce(null);
+
+      const result = await service.syncAllStatuses();
+
+      expect(result).toEqual({
+        totalOrders: 2,
+        updatedCount: 0,
+        unmappedCount: 2,
+      });
+      expect(novaPoshta.getShipmentStatuses).not.toHaveBeenCalled();
     });
   });
 

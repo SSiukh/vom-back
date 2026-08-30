@@ -811,3 +811,70 @@ dominate once foundations, Senders, and Products are in place.
       read-side collision. **User decided:** ignore for now, a separate
       test database/cluster will be set up later. Not something to fix
       silently or route around in the meantime.
+
+## Product search by name
+
+- [x] **Done.** Added an optional `name` query param on `GET /products`
+      (`ListProductsQueryDto`), matched case-insensitively (substring) via
+      Prisma's Mongo `contains` + `mode: 'insensitive'`, combined with the
+      existing `typeId` filter when both are given.
+      **`reviewer` blocking finding, fixed:** the raw `name` value was
+      being forwarded straight into Mongo's `$regex` operator unescaped —
+      live-confirmed a payload like `.*` matched all 86 products instead
+      of doing a literal substring search (NoSQL/regex-injection +
+      ReDoS surface, since `GET /products` has no length cap and is only
+      throttle-limited). Fixed with a new shared `escapeRegExp()` helper
+      (`src/shared/utils/escape-regexp.ts`, its own unit tests) applied to
+      the `name` value before it reaches `contains`, plus a `@MaxLength(100)`
+      cap on the DTO field as defense in depth. Re-verified by the
+      `reviewer` agent with a live read-only check against the real DB
+      (unescaped `.*` → 86 matches; escaped → 0, as expected) — finding
+      closed. Unit + e2e tests cover both the happy path and the
+      metacharacter-escaping regression.
+      A second request in the same message (bootstrap chicken-and-egg:
+      `GET /nova-poshta/cities` needs an active sender's API key, but
+      there is none for the very first sender) was raised via
+      `AskUserQuestion` — user decided to insert the first sender directly
+      into the database by hand instead of a code change, so that part
+      was **not** touched.
+
+## Optional address on sender creation
+
+- [x] **Done.** User wants `POST /senders` to allow creating a
+      sender without picking a pickup warehouse yet (address can be added
+      later via the existing `PATCH /senders/:id/warehouse`). Explicit
+      instruction from the user on how to implement it (not left to my
+      judgment): don't touch the shared `SetSenderWarehouseDto`
+      (`cityRef`/`warehouseRef`, both `@IsNotEmpty()`) since that same
+      class also validates the body of `PATCH /senders/:id/warehouse`,
+      where both fields must stay required. Instead, stop
+      `CreateSenderDto` from being
+      `IntersectionType(VerifySenderDto, SetSenderWarehouseDto)` and give
+      it its own optional `cityRef`/`warehouseRef` pair (present together
+      or absent together — enforced with `@ValidateIf`), and make
+      `SendersService.create()` skip the Nova Poshta warehouse-resolution
+      call and store `addresses: []` when neither is given.
+      Known consequence (user is aware): a sender created without an
+      address can't be used on an order yet (`POST /orders` still requires
+      `senderAddressRef`) until its warehouse is set afterwards via the
+      existing `PATCH /senders/:id/warehouse`.
+      Shipped exactly as specified: `CreateSenderDto extends VerifySenderDto`
+      with its own optional `cityRef?`/`warehouseRef?` gated by mirrored
+      `@ValidateIf` pairs (both-or-neither); `SendersService.create()`
+      skips the live Nova Poshta warehouse-resolution call and stores
+      `addresses: []` when neither is given; `resolveWarehouse()` was
+      refactored to return the full `SenderAddress` shape directly
+      (removes duplicated shape-building between `create()`/
+      `setWarehouse()`, no behavior change to `setWarehouse()`/
+      `PATCH /senders/:id/warehouse`). New `create-sender.dto.spec.ts`
+      covers all 4 presence combinations directly via `class-validator`'s
+      `validate()`; `senders.service.spec.ts` covers the no-address path;
+      `senders.e2e-spec.ts` covers one `@ValidateIf` direction end-to-end
+      plus the full create-with-no-address success path (kept to exactly
+      5 `POST /senders` calls in the file to stay under that route's
+      5/60s throttle — the mirror validation direction is proven at the
+      DTO level instead). `reviewer` pass: checked `sender.addresses`
+      consumers elsewhere (`orders.service.ts`) already null-guard before
+      use, so an empty array can't crash anything — clean, no findings.
+      Docs (`API_REFERENCE.md` §4 Senders) updated for the optional
+      fields + both-or-neither rule; synced to `vom-front`.
