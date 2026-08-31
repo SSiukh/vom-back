@@ -28,6 +28,7 @@ interface ResolvedItems {
   items: OrderItem[];
   totalAmount: number;
   stockDecrements: { productId: string; quantity: number }[];
+  willBeOutOfStock: boolean;
 }
 
 @Injectable()
@@ -101,9 +102,8 @@ export class OrdersService {
       throw new BadRequestException('Sender address not found or deactivated');
     }
 
-    const { items, totalAmount, stockDecrements } = await this.resolveItems(
-      dto.items,
-    );
+    const { items, totalAmount, stockDecrements, willBeOutOfStock } =
+      await this.resolveItems(dto.items);
 
     if (paymentType.code === 'partial' && dto.partialAmount! > totalAmount) {
       throw new BadRequestException(
@@ -173,11 +173,12 @@ export class OrdersService {
             npWaybillNumber: waybill.waybillNumber,
             npWaybillRef: waybill.waybillRef,
             shipmentStatusId: null,
+            isOutOfStock: willBeOutOfStock,
           },
         }),
         ...stockDecrements.map(({ productId, quantity }) =>
           this.prisma.product.update({
-            where: { id: productId, stockQuantity: { gte: quantity } },
+            where: { id: productId },
             data: { stockQuantity: { decrement: quantity } },
           }),
         ),
@@ -189,7 +190,7 @@ export class OrdersService {
 
       if (this.isConcurrencyConflict(error)) {
         throw new BadRequestException(
-          'Not enough stock — a concurrent order already reserved it',
+          'A concurrent write conflicted with this order — please retry',
         );
       }
       throw error;
@@ -250,6 +251,7 @@ export class OrdersService {
     let items = order.items;
     let totalAmount = order.totalAmount;
     let stockDecrements: { productId: string; quantity: number }[] = [];
+    let willBeOutOfStock = false;
 
     if (dto.items) {
       const freedQuantityByProduct = new Map<string, number>();
@@ -268,6 +270,7 @@ export class OrdersService {
       items = resolved.items;
       totalAmount = resolved.totalAmount;
       stockDecrements = resolved.stockDecrements;
+      willBeOutOfStock = resolved.willBeOutOfStock;
     }
 
     if (
@@ -384,6 +387,7 @@ export class OrdersService {
             partialAmount: resolvedPartialAmount,
             totalAmount,
             items,
+            ...(willBeOutOfStock && { isOutOfStock: true }),
           },
         }),
         ...stockRestores.map(({ productId, quantity }) =>
@@ -394,7 +398,7 @@ export class OrdersService {
         ),
         ...stockDecrements.map(({ productId, quantity }) =>
           this.prisma.product.update({
-            where: { id: productId, stockQuantity: { gte: quantity } },
+            where: { id: productId },
             data: { stockQuantity: { decrement: quantity } },
           }),
         ),
@@ -406,7 +410,7 @@ export class OrdersService {
 
       if (this.isConcurrencyConflict(error)) {
         throw new BadRequestException(
-          'This order was modified concurrently, or stock was depleted by another order — please retry',
+          'This order was modified concurrently — please retry',
         );
       }
       throw error;
@@ -621,17 +625,8 @@ export class OrdersService {
   ): Promise<ResolvedItems> {
     const resolvedItems: OrderItem[] = [];
     const stockDecrements: { productId: string; quantity: number }[] = [];
+    const remainingStockByProduct = new Map<string, number>();
     let totalAmount = 0;
-
-    const requestedQuantityByProduct = new Map<string, number>();
-    for (const item of items) {
-      if (item.productId) {
-        requestedQuantityByProduct.set(
-          item.productId,
-          (requestedQuantityByProduct.get(item.productId) ?? 0) + item.quantity,
-        );
-      }
-    }
 
     for (const item of items) {
       const productType = await this.prisma.productType.findUnique({
@@ -689,16 +684,6 @@ export class OrdersService {
         );
       }
 
-      const totalRequestedQuantity =
-        requestedQuantityByProduct.get(product.id) ?? item.quantity;
-      const availableStock =
-        product.stockQuantity + (freedQuantityByProduct.get(product.id) ?? 0);
-      if (availableStock < totalRequestedQuantity) {
-        throw new BadRequestException(
-          `Not enough stock for product "${product.name}"`,
-        );
-      }
-
       const unitPrice =
         item.isPromo && product.promoPrice !== null
           ? product.promoPrice
@@ -717,9 +702,23 @@ export class OrdersService {
       });
       totalAmount += subtotal;
       stockDecrements.push({ productId: product.id, quantity: item.quantity });
+
+      const baselineStock =
+        remainingStockByProduct.get(product.id) ??
+        product.stockQuantity + (freedQuantityByProduct.get(product.id) ?? 0);
+      remainingStockByProduct.set(product.id, baselineStock - item.quantity);
     }
 
-    return { items: resolvedItems, totalAmount, stockDecrements };
+    const willBeOutOfStock = [...remainingStockByProduct.values()].some(
+      (remaining) => remaining <= 0,
+    );
+
+    return {
+      items: resolvedItems,
+      totalAmount,
+      stockDecrements,
+      willBeOutOfStock,
+    };
   }
 
   private validateDeliveryDetails(

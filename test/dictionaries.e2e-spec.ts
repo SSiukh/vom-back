@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface DictionaryItemBody {
   id: string;
@@ -45,7 +46,7 @@ describe('Dictionaries (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 

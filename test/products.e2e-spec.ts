@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CloudinaryService } from '../src/cloudinary/cloudinary.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface ProductResponseBody {
   id: string;
@@ -83,10 +84,8 @@ describe('Products (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (createdIds.length > 0) {
-      await prisma.product.deleteMany({ where: { id: { in: createdIds } } });
-    }
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.product, createdIds);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 
@@ -158,6 +157,56 @@ describe('Products (e2e)', () => {
     expect(body.items.some((item) => createdIds.includes(item.id))).toBe(false);
   });
 
+  it('sorts by stockQuantity ascending/descending when sortOrder is given', async () => {
+    const baseProductId = createdIds[0];
+    let lowStockId: string | undefined;
+    try {
+      const lowStockResponse = await request(app.getHttpServer())
+        .post('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('typeId', stickerTypeId)
+        .field('name', 'E2E Наліпка (сортування)')
+        .field('price', '50')
+        .field('stockQuantity', '1')
+        .attach('photo', validPngBuffer, 'photo.png')
+        .expect(201);
+      lowStockId = (lowStockResponse.body as ProductResponseBody).id;
+      const ownIds = [baseProductId, lowStockId];
+
+      const ascResponse = await request(app.getHttpServer())
+        .get('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .query({ name: 'E2E Наліпка', sortOrder: 'asc', pageSize: 100 })
+        .expect(200);
+      const ascBody = ascResponse.body as ListProductsResponseBody;
+      const ascIds = ascBody.items
+        .filter((item) => ownIds.includes(item.id))
+        .map((item) => item.id);
+      expect(ascIds[0]).toBe(lowStockId);
+
+      const descResponse = await request(app.getHttpServer())
+        .get('/products')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .query({ name: 'E2E Наліпка', sortOrder: 'desc', pageSize: 100 })
+        .expect(200);
+      const descBody = descResponse.body as ListProductsResponseBody;
+      const descIds = descBody.items
+        .filter((item) => ownIds.includes(item.id))
+        .map((item) => item.id);
+      expect(descIds[descIds.length - 1]).toBe(lowStockId);
+    } finally {
+      await safeDeleteByIds(prisma.product, [lowStockId]);
+    }
+  });
+
+  it('rejects an invalid sortOrder value', () => {
+    return request(app.getHttpServer())
+      .get('/products')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ sortOrder: 'sideways' })
+      .expect(400);
+  });
+
   it('gets product detail by id', async () => {
     const [id] = createdIds;
 
@@ -197,6 +246,6 @@ describe('Products (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(404);
 
-    createdIds.pop();
+    createdIds.splice(createdIds.indexOf(id), 1);
   });
 });

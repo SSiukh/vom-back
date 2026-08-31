@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface CrmRowBody {
   id: string;
@@ -31,6 +32,7 @@ describe('CRM table (e2e)', () => {
   let stickerTypeId: string;
   let keychainTypeId: string;
   let deliveredStatusId: string;
+  let seededOrdersStartedAt: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -89,6 +91,7 @@ describe('CRM table (e2e)', () => {
       },
     });
     seededSenderId = sender.id;
+    seededOrdersStartedAt = new Date().toISOString();
 
     const stickerOrder = await prisma.order.create({
       data: {
@@ -198,11 +201,13 @@ describe('CRM table (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.order.deleteMany({
-      where: { id: { in: [stickerOrderId, stickerOrder2Id, keychainOrderId] } },
-    });
-    await prisma.sender.deleteMany({ where: { id: seededSenderId } });
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.order, [
+      stickerOrderId,
+      stickerOrder2Id,
+      keychainOrderId,
+    ]);
+    await safeDeleteByIds(prisma.sender, [seededSenderId]);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 
@@ -252,7 +257,11 @@ describe('CRM table (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/crm/table')
       .set('Authorization', `Bearer ${accessToken}`)
-      .query({ productTypeId: stickerTypeId, pageSize: 1 })
+      .query({
+        productTypeId: stickerTypeId,
+        pageSize: 1,
+        dateFrom: seededOrdersStartedAt,
+      })
       .expect(200);
     const body = response.body as ListCrmResponseBody;
 

@@ -50,6 +50,7 @@ export class ProductsController {
       query.pageSize ?? DEFAULT_PAGE_SIZE,
       query.typeId,
       query.name,
+      query.sortOrder,
     );
   }
 

@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { NovaPoshtaService } from '../src/nova-poshta/nova-poshta.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface SenderResponseBody {
   id: string;
@@ -83,10 +84,8 @@ describe('Senders (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (createdIds.length > 0) {
-      await prisma.sender.deleteMany({ where: { id: { in: createdIds } } });
-    }
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.sender, createdIds);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 

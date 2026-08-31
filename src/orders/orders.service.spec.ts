@@ -315,15 +315,70 @@ describe('OrdersService', () => {
       ).rejects.toThrow('Sender address not found or deactivated');
     });
 
-    it('rejects insufficient stock for a catalog product', async () => {
+    it('allows creating an order even when stock is insufficient, letting it go negative', async () => {
       prisma.product.findUnique.mockResolvedValueOnce({
         ...product,
         stockQuantity: 1,
       });
 
-      await expect(service.create(createDto)).rejects.toThrow(
-        'Not enough stock',
-      );
+      const result = await service.create(createDto);
+
+      expect(result.id).toBe('order-id');
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'product-id' },
+        data: { stockQuantity: { decrement: 2 } },
+      });
+    });
+
+    it('automatically flags the order isOutOfStock when a product would drop to zero or below', async () => {
+      prisma.product.findUnique.mockResolvedValueOnce({
+        ...product,
+        stockQuantity: 1,
+      });
+
+      await service.create(createDto);
+
+      const [[{ data }]] = prisma.order.create.mock.calls as [
+        [{ data: { isOutOfStock: boolean } }],
+      ];
+      expect(data.isOutOfStock).toBe(true);
+    });
+
+    it('leaves isOutOfStock false when stock comfortably covers the order', async () => {
+      await service.create(createDto);
+
+      const [[{ data }]] = prisma.order.create.mock.calls as [
+        [{ data: { isOutOfStock: boolean } }],
+      ];
+      expect(data.isOutOfStock).toBe(false);
+    });
+
+    it('flags isOutOfStock when two lines for the same product combined exceed stock, even though neither alone would', async () => {
+      prisma.product.findUnique.mockResolvedValue({
+        ...product,
+        stockQuantity: 3,
+      });
+
+      await service.create({
+        ...createDto,
+        items: [
+          {
+            productTypeId: 'product-type-id',
+            productId: 'product-id',
+            quantity: 2,
+          },
+          {
+            productTypeId: 'product-type-id',
+            productId: 'product-id',
+            quantity: 2,
+          },
+        ],
+      });
+
+      const [[{ data }]] = prisma.order.create.mock.calls as [
+        [{ data: { isOutOfStock: boolean } }],
+      ];
+      expect(data.isOutOfStock).toBe(true);
     });
 
     it('rejects isPromo when the product has no promo price', async () => {
@@ -365,7 +420,7 @@ describe('OrdersService', () => {
       );
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'product-id', stockQuantity: { gte: 2 } },
+        where: { id: 'product-id' },
         data: { stockQuantity: { decrement: 2 } },
       });
       expect(result.id).toBe('order-id');
@@ -408,32 +463,7 @@ describe('OrdersService', () => {
       );
     });
 
-    it('rejects two line items for the same product whose combined quantity exceeds stock', async () => {
-      prisma.product.findUnique.mockResolvedValue({
-        ...product,
-        stockQuantity: 3,
-      });
-
-      await expect(
-        service.create({
-          ...createDto,
-          items: [
-            {
-              productTypeId: 'product-type-id',
-              productId: 'product-id',
-              quantity: 2,
-            },
-            {
-              productTypeId: 'product-type-id',
-              productId: 'product-id',
-              quantity: 2,
-            },
-          ],
-        }),
-      ).rejects.toThrow('Not enough stock');
-    });
-
-    it('translates a concurrent stock-depletion failure (Prisma P2025) into a 400', async () => {
+    it('translates a Prisma P2025 concurrency conflict into a 400', async () => {
       const { Prisma } =
         jest.requireActual<typeof import('@prisma/client')>('@prisma/client');
       prisma.$transaction.mockRejectedValueOnce(
@@ -444,7 +474,7 @@ describe('OrdersService', () => {
       );
 
       await expect(service.create(createDto)).rejects.toThrow(
-        'Not enough stock — a concurrent order already reserved it',
+        'A concurrent write conflicted with this order — please retry',
       );
       expect(novaPoshta.deleteWaybill).toHaveBeenCalledWith(
         'decrypted-api-key',
@@ -463,7 +493,7 @@ describe('OrdersService', () => {
       );
 
       await expect(service.create(createDto)).rejects.toThrow(
-        'Not enough stock — a concurrent order already reserved it',
+        'A concurrent write conflicted with this order — please retry',
       );
     });
 
@@ -637,7 +667,7 @@ describe('OrdersService', () => {
         data: { stockQuantity: { increment: 2 } },
       });
       expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'product-id', stockQuantity: { gte: 3 } },
+        where: { id: 'product-id' },
         data: { stockQuantity: { decrement: 3 } },
       });
       const [[{ where, data }]] = prisma.order.update.mock.calls as [
@@ -655,7 +685,7 @@ describe('OrdersService', () => {
       expect(data.totalAmount).toBe(300);
     });
 
-    it('allows a larger quantity of the same product by freeing its own previously-reserved stock first', async () => {
+    it('allows a larger quantity of the same product even when stock is insufficient', async () => {
       prisma.product.findUnique.mockResolvedValue({
         ...product,
         stockQuantity: 1,
@@ -672,6 +702,45 @@ describe('OrdersService', () => {
           ],
         }),
       ).resolves.toBeDefined();
+    });
+
+    it('automatically flags the order isOutOfStock when the new item total would drop stock to zero or below', async () => {
+      prisma.product.findUnique.mockResolvedValue({
+        ...product,
+        stockQuantity: 1,
+      });
+
+      await service.update('order-id', {
+        items: [
+          {
+            productTypeId: 'product-type-id',
+            productId: 'product-id',
+            quantity: 3,
+          },
+        ],
+      });
+
+      const [[{ data }]] = prisma.order.update.mock.calls as [
+        [{ data: { isOutOfStock?: boolean } }],
+      ];
+      expect(data.isOutOfStock).toBe(true);
+    });
+
+    it('does not touch isOutOfStock when stock comfortably covers the updated items', async () => {
+      await service.update('order-id', {
+        items: [
+          {
+            productTypeId: 'product-type-id',
+            productId: 'product-id',
+            quantity: 3,
+          },
+        ],
+      });
+
+      const [[{ data }]] = prisma.order.update.mock.calls as [
+        [{ data: { isOutOfStock?: boolean } }],
+      ];
+      expect(data.isOutOfStock).toBeUndefined();
     });
 
     it('updates only CargoType/Description on the waybill when the shipment type changes with no item changes', async () => {
@@ -732,7 +801,7 @@ describe('OrdersService', () => {
         data: { stockQuantity: { increment: 2 } },
       });
       expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'product-id', stockQuantity: { gte: 2 } },
+        where: { id: 'product-id' },
         data: { stockQuantity: { decrement: 2 } },
       });
     });
@@ -769,7 +838,7 @@ describe('OrdersService', () => {
         data: { stockQuantity: { increment: 2 } },
       });
       expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'other-product-id', stockQuantity: { gte: 2 } },
+        where: { id: 'other-product-id' },
         data: { stockQuantity: { decrement: 2 } },
       });
       expect(novaPoshta.updateWaybill).toHaveBeenCalledWith(
@@ -778,7 +847,7 @@ describe('OrdersService', () => {
       );
     });
 
-    it('aggregates two duplicate lines for the same product against the freed stock', async () => {
+    it('sums two duplicate lines for the same product into a single combined decrement', async () => {
       prisma.product.findUnique.mockResolvedValue({
         ...product,
         stockQuantity: 2,
@@ -818,7 +887,7 @@ describe('OrdersService', () => {
       expect(novaPoshta.updateWaybill).not.toHaveBeenCalled();
     });
 
-    it('translates a concurrent stock-depletion failure (Prisma P2025) into a 400 and reverts the waybill', async () => {
+    it('translates a Prisma P2025 concurrency conflict into a 400 and reverts the waybill', async () => {
       const { Prisma } =
         jest.requireActual<typeof import('@prisma/client')>('@prisma/client');
       prisma.$transaction.mockRejectedValueOnce(
@@ -838,9 +907,7 @@ describe('OrdersService', () => {
             },
           ],
         }),
-      ).rejects.toThrow(
-        'This order was modified concurrently, or stock was depleted by another order — please retry',
-      );
+      ).rejects.toThrow('This order was modified concurrently — please retry');
 
       expect(novaPoshta.updateWaybill).toHaveBeenCalledTimes(2);
       expect(novaPoshta.updateWaybill).toHaveBeenLastCalledWith(
@@ -869,9 +936,7 @@ describe('OrdersService', () => {
             },
           ],
         }),
-      ).rejects.toThrow(
-        'This order was modified concurrently, or stock was depleted by another order — please retry',
-      );
+      ).rejects.toThrow('This order was modified concurrently — please retry');
     });
 
     it('surfaces a BadGatewayException instead of the original DB error when reverting the waybill itself fails', async () => {

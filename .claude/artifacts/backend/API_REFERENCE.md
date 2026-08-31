@@ -188,7 +188,7 @@ section for the exact form-field mechanics.
 
 | Method & path | Body | Response |
 |---|---|---|
-| `GET /products` | `?page&pageSize&typeId&name` | `ListProductsResponseDto` |
+| `GET /products` | `?page&pageSize&typeId&name&sortOrder` | `ListProductsResponseDto` |
 | `GET /products/:id` | — | `ProductResponseDto` |
 | `POST /products` | multipart: `photo` (required) + `CreateProductDto` fields | `ProductResponseDto` |
 | `PATCH /products/:id` | multipart: `photo` (optional) + partial `CreateProductDto` fields | `ProductResponseDto` |
@@ -211,6 +211,9 @@ automatically (no orphaned images).
 over the product name, combinable with `typeId`. Regex metacharacters in
 the value are escaped server-side, so it is always a literal substring
 match, never a pattern.
+
+`sortOrder` (optional, `asc`|`desc`) sorts the list by `stockQuantity`
+instead of the default `createdAt desc`; combinable with `typeId`/`name`.
 
 ## 6. Orders (`/orders`)
 

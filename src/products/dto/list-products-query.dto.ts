@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsMongoId,
   IsNotEmpty,
@@ -43,4 +44,13 @@ export class ListProductsQueryDto {
   @IsNotEmpty()
   @MaxLength(MAX_NAME_QUERY_LENGTH)
   name?: string;
+
+  @ApiPropertyOptional({
+    enum: ['asc', 'desc'],
+    description:
+      'Сортування за кількістю на складі; за відсутності — сортування за датою створення',
+  })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 }

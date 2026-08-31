@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface DashboardResponseBody {
   totalRevenue: number;
@@ -128,10 +129,10 @@ describe('Dashboard (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.order.deleteMany({ where: { id: seededOrderId } });
-    await prisma.expense.deleteMany({ where: { id: seededExpenseId } });
-    await prisma.sender.deleteMany({ where: { id: seededSenderId } });
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.order, [seededOrderId]);
+    await safeDeleteByIds(prisma.expense, [seededExpenseId]);
+    await safeDeleteByIds(prisma.sender, [seededSenderId]);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 

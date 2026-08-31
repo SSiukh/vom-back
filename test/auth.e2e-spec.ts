@@ -7,6 +7,8 @@ import { loadEsm } from 'load-esm';
 import type * as Otplib from 'otplib';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { uniqueLogin } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 async function generateTotpCode(secret: string): Promise<string> {
   const { generate } = await loadEsm<typeof Otplib>('otplib');
@@ -38,7 +40,7 @@ describe('Auth + 2FA (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let userId: string;
-  const login = 'e2e-auth-user';
+  const login = uniqueLogin('e2e-auth-user');
   const password = 'correct-horse-battery-staple';
 
   beforeAll(async () => {
@@ -73,7 +75,7 @@ describe('Auth + 2FA (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { id: userId } });
+    await safeDeleteByIds(prisma.user, [userId]);
     await app.close();
   });
 

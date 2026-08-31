@@ -4,9 +4,14 @@ import { App } from 'supertest/types';
 import * as argon2 from 'argon2';
 import { loadEsm } from 'load-esm';
 import type * as Otplib from 'otplib';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 const TEST_PASSWORD = 'e2e-test-password-123';
+
+export function uniqueLogin(base: string): string {
+  return `${base}-${randomUUID()}`;
+}
 
 interface LoginResponseBody {
   requiresTwoFa: boolean;
@@ -27,10 +32,11 @@ export async function createAuthenticatedUser(
   prisma: PrismaService,
   login: string,
 ): Promise<AuthenticatedTestUser> {
+  const uniqueLoginValue = uniqueLogin(login);
   const passwordHash = await argon2.hash(TEST_PASSWORD);
   const user = await prisma.user.create({
     data: {
-      login,
+      login: uniqueLoginValue,
       passwordHash,
       twoFaEnabled: false,
       twoFaSecret: null,
@@ -41,7 +47,7 @@ export async function createAuthenticatedUser(
 
   const loginResponse = await request(app.getHttpServer())
     .post('/auth/login')
-    .send({ login, password: TEST_PASSWORD })
+    .send({ login: uniqueLoginValue, password: TEST_PASSWORD })
     .expect(201);
   const accessToken = (loginResponse.body as LoginResponseBody)
     .accessToken as string;

@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface ExpenseResponseBody {
   id: string;
@@ -64,10 +65,8 @@ describe('Expenses (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (createdIds.length > 0) {
-      await prisma.expense.deleteMany({ where: { id: { in: createdIds } } });
-    }
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.expense, createdIds);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 

@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { NovaPoshtaService } from '../src/nova-poshta/nova-poshta.service';
 import { EncryptionService } from '../src/shared/encryption/encryption.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface OrderResponseBody {
   id: string;
@@ -168,10 +169,10 @@ describe('Orders (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.order.deleteMany({ where: { id: seededOrderId } });
-    await prisma.product.deleteMany({ where: { id: seededProductId } });
-    await prisma.sender.deleteMany({ where: { id: seededSenderId } });
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.order, [seededOrderId]);
+    await safeDeleteByIds(prisma.product, [seededProductId]);
+    await safeDeleteByIds(prisma.sender, [seededSenderId]);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 
@@ -214,45 +215,100 @@ describe('Orders (e2e)', () => {
   });
 
   it('creates an order, calls Nova Poshta and decrements product stock', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/orders')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({
-        shipmentTypeId,
-        paymentTypeId,
-        items: [
-          {
-            productTypeId: stickerProductTypeId,
-            productId: seededProductId,
-            quantity: 2,
+    let createdOrderId: string | undefined;
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          shipmentTypeId,
+          paymentTypeId,
+          items: [
+            {
+              productTypeId: stickerProductTypeId,
+              productId: seededProductId,
+              quantity: 2,
+            },
+          ],
+          senderId: seededSenderId,
+          senderAddressRef: 'e2e-address-ref',
+          recipient: {
+            phone: '+380501234567',
+            lastName: 'Створений',
+            firstName: 'Тест',
           },
-        ],
-        senderId: seededSenderId,
-        senderAddressRef: 'e2e-address-ref',
-        recipient: {
-          phone: '+380501234567',
-          lastName: 'Створений',
-          firstName: 'Тест',
-        },
-        deliveryTypeId,
-        deliveryDetails: { cityRef: 'city-ref', warehouseRef: 'warehouse-ref' },
-      })
-      .expect(201);
-    const body = response.body as OrderResponseBody;
+          deliveryTypeId,
+          deliveryDetails: {
+            cityRef: 'city-ref',
+            warehouseRef: 'warehouse-ref',
+          },
+        })
+        .expect(201);
+      const body = response.body as OrderResponseBody;
+      createdOrderId = body.id;
 
-    expect(body.npWaybillNumber).toBe('e2e-waybill-number');
-    expect(createWaybillMock).toHaveBeenCalledTimes(1);
+      expect(body.npWaybillNumber).toBe('e2e-waybill-number');
+      expect(createWaybillMock).toHaveBeenCalledTimes(1);
+      expect(body.isOutOfStock).toBe(false);
 
-    const product = await prisma.product.findUniqueOrThrow({
-      where: { id: seededProductId },
-    });
-    expect(product.stockQuantity).toBe(3);
+      const product = await prisma.product.findUniqueOrThrow({
+        where: { id: seededProductId },
+      });
+      expect(product.stockQuantity).toBe(3);
+    } finally {
+      await safeDeleteByIds(prisma.order, [createdOrderId]);
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 5 },
+      });
+    }
+  });
 
-    await prisma.order.deleteMany({ where: { id: body.id } });
-    await prisma.product.update({
-      where: { id: seededProductId },
-      data: { stockQuantity: 5 },
-    });
+  it('creates an order even when the requested quantity exceeds stock, letting it go negative', async () => {
+    let createdOrderId: string | undefined;
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          shipmentTypeId,
+          paymentTypeId,
+          items: [
+            {
+              productTypeId: stickerProductTypeId,
+              productId: seededProductId,
+              quantity: 8,
+            },
+          ],
+          senderId: seededSenderId,
+          senderAddressRef: 'e2e-address-ref',
+          recipient: {
+            phone: '+380501234567',
+            lastName: 'Створений',
+            firstName: 'Тест',
+          },
+          deliveryTypeId,
+          deliveryDetails: {
+            cityRef: 'city-ref',
+            warehouseRef: 'warehouse-ref',
+          },
+        })
+        .expect(201);
+      const body = response.body as OrderResponseBody;
+      createdOrderId = body.id;
+      expect(body.isOutOfStock).toBe(true);
+
+      const product = await prisma.product.findUniqueOrThrow({
+        where: { id: seededProductId },
+      });
+      expect(product.stockQuantity).toBe(-3);
+    } finally {
+      await safeDeleteByIds(prisma.order, [createdOrderId]);
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 5 },
+      });
+    }
   });
 
   it('rejects door-to-door ("address") delivery with 400', async () => {
@@ -325,46 +381,119 @@ describe('Orders (e2e)', () => {
         npWaybillRef: 'e2e-update-waybill-ref',
       },
     });
-    await prisma.product.update({
-      where: { id: seededProductId },
-      data: { stockQuantity: 4 },
-    });
-    updateWaybillMock.mockClear();
+    try {
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 4 },
+      });
+      updateWaybillMock.mockClear();
 
-    const response = await request(app.getHttpServer())
-      .patch(`/orders/${created.id}`)
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${created.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          items: [
+            {
+              productTypeId: stickerProductTypeId,
+              productId: seededProductId,
+              quantity: 2,
+            },
+          ],
+        })
+        .expect(200);
+      const body = response.body as OrderResponseBody;
+
+      expect(body.totalAmount).toBe(200);
+      expect(updateWaybillMock).toHaveBeenCalledWith(
+        'e2e-raw-api-key',
+        expect.objectContaining({
+          waybillRef: 'e2e-update-waybill-ref',
+          cost: 200,
+        }),
+      );
+
+      const product = await prisma.product.findUniqueOrThrow({
+        where: { id: seededProductId },
+      });
+      expect(product.stockQuantity).toBe(3);
+    } finally {
+      await safeDeleteByIds(prisma.order, [created.id]);
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 5 },
+      });
+    }
+  });
+
+  it('flags the order isOutOfStock when an item update drops stock to zero or below', async () => {
+    const created = await prisma.order.create({
+      data: {
+        shipmentTypeId,
+        paymentTypeId,
+        totalAmount: 100,
         items: [
           {
-            productTypeId: stickerProductTypeId,
             productId: seededProductId,
-            quantity: 2,
+            productTypeId: stickerProductTypeId,
+            nameSnapshot: 'E2E Наліпка',
+            photoUrlSnapshot: 'https://cloudinary.example/e2e-photo.jpg',
+            price: 100,
+            isPromo: false,
+            quantity: 1,
+            subtotal: 100,
           },
         ],
-      })
-      .expect(200);
-    const body = response.body as OrderResponseBody;
-
-    expect(body.totalAmount).toBe(200);
-    expect(updateWaybillMock).toHaveBeenCalledWith(
-      'e2e-raw-api-key',
-      expect.objectContaining({
-        waybillRef: 'e2e-update-waybill-ref',
-        cost: 200,
-      }),
-    );
-
-    const product = await prisma.product.findUniqueOrThrow({
-      where: { id: seededProductId },
+        senderId: seededSenderId,
+        senderAddressRef: 'e2e-address-ref',
+        recipient: {
+          phone: '+380501234567',
+          lastName: 'До редагування',
+          firstName: 'Тест',
+          middleName: null,
+        },
+        deliveryTypeId,
+        deliveryDetails: {
+          cityRef: 'e2e-city-ref',
+          warehouseRef: 'e2e-warehouse-ref',
+        },
+        npWaybillNumber: 'e2e-out-of-stock-waybill-number',
+        npWaybillRef: 'e2e-out-of-stock-waybill-ref',
+      },
     });
-    expect(product.stockQuantity).toBe(3);
+    try {
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 2 },
+      });
 
-    await prisma.order.deleteMany({ where: { id: created.id } });
-    await prisma.product.update({
-      where: { id: seededProductId },
-      data: { stockQuantity: 5 },
-    });
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${created.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          items: [
+            {
+              productTypeId: stickerProductTypeId,
+              productId: seededProductId,
+              quantity: 5,
+            },
+          ],
+        })
+        .expect(200);
+      const body = response.body as OrderResponseBody;
+
+      expect(body.isOutOfStock).toBe(true);
+
+      const product = await prisma.product.findUniqueOrThrow({
+        where: { id: seededProductId },
+      });
+      expect(product.stockQuantity).toBe(-2);
+    } finally {
+      await safeDeleteByIds(prisma.order, [created.id]);
+      await prisma.product.update({
+        where: { id: seededProductId },
+        data: { stockQuantity: 5 },
+      });
+    }
   });
 
   it('applies a no-op order update without calling Nova Poshta', async () => {
@@ -433,20 +562,21 @@ describe('Orders (e2e)', () => {
         npWaybillRef: 'e2e-status-waybill-ref',
       },
     });
+    try {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${created.id}/sync-status`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+      const body = response.body as OrderResponseBody;
 
-    const response = await request(app.getHttpServer())
-      .patch(`/orders/${created.id}/sync-status`)
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(200);
-    const body = response.body as OrderResponseBody;
-
-    expect(getShipmentStatusMock).toHaveBeenCalledWith(
-      'e2e-raw-api-key',
-      'e2e-status-waybill-number',
-    );
-    expect(body.shipmentStatusId).toBe(deliveredStatus.id);
-
-    await prisma.order.deleteMany({ where: { id: created.id } });
+      expect(getShipmentStatusMock).toHaveBeenCalledWith(
+        'e2e-raw-api-key',
+        'e2e-status-waybill-number',
+      );
+      expect(body.shipmentStatusId).toBe(deliveredStatus.id);
+    } finally {
+      await safeDeleteByIds(prisma.order, [created.id]);
+    }
   });
 
   it('syncs shipment statuses for every order with a waybill in one bulk call', async () => {
@@ -487,45 +617,46 @@ describe('Orders (e2e)', () => {
         npWaybillRef: 'e2e-bulk-sync-waybill-ref',
       },
     });
+    try {
+      getShipmentStatusesMock.mockImplementation(
+        (_apiKey: string, waybillNumbers: string[]) => {
+          if (waybillNumbers.includes('e2e-bulk-sync-waybill-number')) {
+            return Promise.resolve([
+              {
+                waybillNumber: 'e2e-bulk-sync-waybill-number',
+                statusCode: '7',
+                status: 'Прибув',
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        },
+      );
 
-    getShipmentStatusesMock.mockImplementation(
-      (_apiKey: string, waybillNumbers: string[]) => {
-        if (waybillNumbers.includes('e2e-bulk-sync-waybill-number')) {
-          return Promise.resolve([
-            {
-              waybillNumber: 'e2e-bulk-sync-waybill-number',
-              statusCode: '7',
-              status: 'Прибув',
-            },
-          ]);
-        }
-        return Promise.resolve([]);
-      },
-    );
+      const response = await request(app.getHttpServer())
+        .patch('/orders/sync-statuses')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+      const body = response.body as {
+        totalOrders: number;
+        updatedCount: number;
+        unmappedCount: number;
+      };
 
-    const response = await request(app.getHttpServer())
-      .patch('/orders/sync-statuses')
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(200);
-    const body = response.body as {
-      totalOrders: number;
-      updatedCount: number;
-      unmappedCount: number;
-    };
+      expect(getShipmentStatusesMock).toHaveBeenCalledWith(
+        'e2e-raw-api-key',
+        expect.arrayContaining(['e2e-bulk-sync-waybill-number']),
+      );
+      expect(body.totalOrders).toBeGreaterThanOrEqual(1);
+      expect(body.updatedCount).toBeGreaterThanOrEqual(1);
 
-    expect(getShipmentStatusesMock).toHaveBeenCalledWith(
-      'e2e-raw-api-key',
-      expect.arrayContaining(['e2e-bulk-sync-waybill-number']),
-    );
-    expect(body.totalOrders).toBeGreaterThanOrEqual(1);
-    expect(body.updatedCount).toBeGreaterThanOrEqual(1);
-
-    const updated = await prisma.order.findUniqueOrThrow({
-      where: { id: created.id },
-    });
-    expect(updated.shipmentStatusId).toBe(deliveredStatus.id);
-
-    await prisma.order.deleteMany({ where: { id: created.id } });
+      const updated = await prisma.order.findUniqueOrThrow({
+        where: { id: created.id },
+      });
+      expect(updated.shipmentStatusId).toBe(deliveredStatus.id);
+    } finally {
+      await safeDeleteByIds(prisma.order, [created.id]);
+    }
   });
 
   it('sets isPacked/isOutOfStock independently of Nova Poshta status', async () => {

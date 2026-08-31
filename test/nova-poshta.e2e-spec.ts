@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { NovaPoshtaService } from '../src/nova-poshta/nova-poshta.service';
 import { EncryptionService } from '../src/shared/encryption/encryption.service';
 import { createAuthenticatedUser } from './support/auth-helper';
+import { safeDeleteByIds } from './support/cleanup-helper';
 
 interface AddressOptionBody {
   ref: string;
@@ -77,10 +78,8 @@ describe('Nova Poshta address lookups (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (activeSenderId) {
-      await prisma.sender.deleteMany({ where: { id: activeSenderId } });
-    }
-    await prisma.user.deleteMany({ where: { id: authUserId } });
+    await safeDeleteByIds(prisma.sender, [activeSenderId]);
+    await safeDeleteByIds(prisma.user, [authUserId]);
     await app.close();
   });
 

@@ -58,6 +58,7 @@ export class ProductsService {
     pageSize: number,
     typeId?: string,
     name?: string,
+    sortOrder?: 'asc' | 'desc',
   ): Promise<ListProductsResponseDto> {
     const where = {
       ...(typeId && { typeId }),
@@ -71,7 +72,9 @@ export class ProductsService {
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: sortOrder
+          ? { stockQuantity: sortOrder }
+          : { createdAt: 'desc' },
       }),
       this.prisma.product.count({ where }),
     ]);

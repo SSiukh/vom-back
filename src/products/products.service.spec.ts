@@ -195,6 +195,30 @@ describe('ProductsService', () => {
         }),
       );
     });
+
+    it('sorts by createdAt desc by default', async () => {
+      await service.findAll(1, 10);
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+    });
+
+    it('sorts by stockQuantity ascending when sortOrder=asc is given', async () => {
+      await service.findAll(1, 10, undefined, undefined, 'asc');
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { stockQuantity: 'asc' } }),
+      );
+    });
+
+    it('sorts by stockQuantity descending when sortOrder=desc is given', async () => {
+      await service.findAll(1, 10, undefined, undefined, 'desc');
+
+      expect(prisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { stockQuantity: 'desc' } }),
+      );
+    });
   });
 
   describe('findOne', () => {
