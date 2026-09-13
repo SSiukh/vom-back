@@ -50,6 +50,7 @@ export class OrdersController {
       query.pageSize ?? DEFAULT_PAGE_SIZE,
       query.dateFrom,
       query.dateTo,
+      query.productTypeId,
     );
   }
 

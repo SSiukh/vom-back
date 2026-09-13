@@ -12,4 +12,7 @@ export class ProductTypeDto {
 
   @ApiProperty()
   isCustom: boolean;
+
+  @ApiProperty()
+  brand: string;
 }

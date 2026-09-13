@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsDateString, IsIn, IsOptional } from 'class-validator';
 
 export class DashboardQueryDto {
   @ApiPropertyOptional({ description: 'Початок періоду (ISO)' })
@@ -11,4 +11,12 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  @ApiPropertyOptional({
+    enum: ['vom', 'm'],
+    description: 'Фільтр за групою товарів/витрат',
+  })
+  @IsOptional()
+  @IsIn(['vom', 'm'])
+  brand?: 'vom' | 'm';
 }

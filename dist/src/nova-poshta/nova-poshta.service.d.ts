@@ -1,3 +1,4 @@
+export declare function formatNovaPoshtaDate(date: Date): string;
 export interface SenderVerificationResult {
     counterpartyRef: string;
     contactPersonRef: string;
@@ -48,6 +49,11 @@ export interface ShipmentStatus {
     statusCode: string;
     status: string;
 }
+export interface BulkShipmentStatus {
+    waybillNumber: string;
+    statusCode: string;
+    status: string;
+}
 export declare class NovaPoshtaService {
     verifySender(apiKey: string): Promise<SenderVerificationResult>;
     searchCities(apiKey: string, query: string): Promise<AddressOption[]>;
@@ -59,6 +65,7 @@ export declare class NovaPoshtaService {
     updateWaybill(apiKey: string, params: UpdateWaybillParams): Promise<void>;
     deleteWaybill(apiKey: string, waybillRef: string): Promise<void>;
     getShipmentStatus(apiKey: string, waybillNumber: string): Promise<ShipmentStatus>;
+    getShipmentStatuses(apiKey: string, waybillNumbers: string[]): Promise<BulkShipmentStatus[]>;
     private buildDimensions;
     private buildBackwardDeliveryData;
     private callMethod;

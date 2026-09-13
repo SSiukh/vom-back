@@ -4,6 +4,7 @@ import { NovaPoshtaService } from '../nova-poshta/nova-poshta.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
+import { BulkSyncStatusResponseDto } from './dto/bulk-sync-status-response.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
 export declare class OrdersService {
@@ -14,10 +15,11 @@ export declare class OrdersService {
     constructor(prisma: PrismaService, encryption: EncryptionService, novaPoshta: NovaPoshtaService);
     create(dto: CreateOrderDto): Promise<OrderResponseDto>;
     update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto>;
-    findAll(page: number, pageSize: number, dateFrom?: string, dateTo?: string): Promise<ListOrdersResponseDto>;
+    findAll(page: number, pageSize: number, dateFrom?: string, dateTo?: string, productTypeId?: string): Promise<ListOrdersResponseDto>;
     findOne(id: string): Promise<OrderResponseDto>;
     remove(id: string): Promise<void>;
     syncStatus(id: string): Promise<OrderResponseDto>;
+    syncAllStatuses(): Promise<BulkSyncStatusResponseDto>;
     setStatusFlags(id: string, dto: SetOrderStatusFlagsDto): Promise<OrderResponseDto>;
     private resolveItems;
     private validateDeliveryDetails;

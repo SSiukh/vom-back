@@ -14,6 +14,7 @@ exports.ProductsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
+const escape_regexp_1 = require("../shared/utils/escape-regexp");
 const CLOUDINARY_FOLDER = 'products';
 let ProductsService = ProductsService_1 = class ProductsService {
     prisma;
@@ -44,14 +45,21 @@ let ProductsService = ProductsService_1 = class ProductsService {
             throw error;
         }
     }
-    async findAll(page, pageSize, typeId) {
-        const where = typeId ? { typeId } : {};
+    async findAll(page, pageSize, typeId, name, sortOrder) {
+        const where = {
+            ...(typeId && { typeId }),
+            ...(name && {
+                name: { contains: (0, escape_regexp_1.escapeRegExp)(name), mode: 'insensitive' },
+            }),
+        };
         const [products, total] = await Promise.all([
             this.prisma.product.findMany({
                 where,
                 skip: (page - 1) * pageSize,
                 take: pageSize,
-                orderBy: { createdAt: 'desc' },
+                orderBy: sortOrder
+                    ? { stockQuantity: sortOrder }
+                    : { createdAt: 'desc' },
             }),
             this.prisma.product.count({ where }),
         ]);

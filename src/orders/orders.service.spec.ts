@@ -218,6 +218,16 @@ describe('OrdersService', () => {
       );
     });
 
+    it('filters by productTypeId using an array "some" match', async () => {
+      await service.findAll(1, 10, undefined, undefined, 'sticker-type-id');
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { items: { some: { productTypeId: 'sticker-type-id' } } },
+        }),
+      );
+    });
+
     it('maps the embedded items/recipient/deliveryDetails onto the response', async () => {
       const result = await service.findAll(1, 10);
 

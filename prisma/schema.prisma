@@ -53,6 +53,7 @@ model ProductType {
   code      String   @unique
   label     String
   isCustom  Boolean  @default(false) @map("is_custom")
+  brand     String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -96,6 +97,7 @@ model Expense {
   type      ExpenseType @relation(fields: [typeId], references: [id])
   name      String?
   amount    Float
+  brand     String?
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 

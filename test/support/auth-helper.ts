@@ -45,26 +45,31 @@ export async function createAuthenticatedUser(
     },
   });
 
-  const loginResponse = await request(app.getHttpServer())
-    .post('/auth/login')
-    .send({ login: uniqueLoginValue, password: TEST_PASSWORD })
-    .expect(201);
-  const accessToken = (loginResponse.body as LoginResponseBody)
-    .accessToken as string;
+  try {
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ login: uniqueLoginValue, password: TEST_PASSWORD })
+      .expect(201);
+    const accessToken = (loginResponse.body as LoginResponseBody)
+      .accessToken as string;
 
-  const setupResponse = await request(app.getHttpServer())
-    .post('/auth/2fa/setup')
-    .set('Authorization', `Bearer ${accessToken}`)
-    .expect(201);
-  const { secret } = setupResponse.body as SetupTwoFaResponseBody;
+    const setupResponse = await request(app.getHttpServer())
+      .post('/auth/2fa/setup')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(201);
+    const { secret } = setupResponse.body as SetupTwoFaResponseBody;
 
-  const { generate } = await loadEsm<typeof Otplib>('otplib');
-  const code = await generate({ secret });
-  await request(app.getHttpServer())
-    .post('/auth/2fa/confirm')
-    .set('Authorization', `Bearer ${accessToken}`)
-    .send({ code })
-    .expect(201);
+    const { generate } = await loadEsm<typeof Otplib>('otplib');
+    const code = await generate({ secret });
+    await request(app.getHttpServer())
+      .post('/auth/2fa/confirm')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ code })
+      .expect(201);
 
-  return { userId: user.id, accessToken };
+    return { userId: user.id, accessToken };
+  } catch (error) {
+    await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+    throw error;
+  }
 }

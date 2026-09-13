@@ -3,4 +3,5 @@ export declare class ProductTypeDto {
     code: string;
     label: string;
     isCustom: boolean;
+    brand: string;
 }

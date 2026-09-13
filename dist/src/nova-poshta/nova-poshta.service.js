@@ -7,18 +7,26 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NovaPoshtaService = void 0;
+exports.formatNovaPoshtaDate = formatNovaPoshtaDate;
 const common_1 = require("@nestjs/common");
 const NOVA_POSHTA_API_URL = 'https://api.novaposhta.ua/v2.0/json/';
 const POSTOMAT_WAREHOUSE_TYPE_DESCRIPTION = 'Поштомат';
 function formatNovaPoshtaDate(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Kiev',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).formatToParts(date);
+    const day = parts.find((part) => part.type === 'day').value;
+    const month = parts.find((part) => part.type === 'month').value;
+    const year = parts.find((part) => part.type === 'year').value;
     return `${day}.${month}.${year}`;
 }
 const WAYBILL_SEATS_AMOUNT = '1';
 const WAYBILL_WEIGHT_KG = '0.5';
 const WAYBILL_VOLUME_M3 = '0.0004';
+const WAYBILL_STATUS_CHUNK_SIZE = 50;
 let NovaPoshtaService = class NovaPoshtaService {
     async verifySender(apiKey) {
         const [counterparty] = await this.callMethod(apiKey, 'Counterparty', 'getCounterparties', { CounterpartyProperty: 'Sender', Page: '1' });
@@ -136,6 +144,18 @@ let NovaPoshtaService = class NovaPoshtaService {
             throw new common_1.BadRequestException('No tracking info found for this waybill number');
         }
         return { statusCode: result.StatusCode, status: result.Status };
+    }
+    async getShipmentStatuses(apiKey, waybillNumbers) {
+        const chunks = [];
+        for (let i = 0; i < waybillNumbers.length; i += WAYBILL_STATUS_CHUNK_SIZE) {
+            chunks.push(waybillNumbers.slice(i, i + WAYBILL_STATUS_CHUNK_SIZE));
+        }
+        const chunkResults = await Promise.all(chunks.map((chunk) => this.callMethod(apiKey, 'TrackingDocument', 'getStatusDocuments', { Documents: chunk.map((number) => ({ DocumentNumber: number })) })));
+        return chunkResults.flat().map((result) => ({
+            waybillNumber: result.Number,
+            statusCode: result.StatusCode,
+            status: result.Status,
+        }));
     }
     buildDimensions(cargoType) {
         if (cargoType === 'Documents') {

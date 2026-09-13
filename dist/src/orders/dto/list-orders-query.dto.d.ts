@@ -3,4 +3,5 @@ export declare class ListOrdersQueryDto {
     pageSize?: number;
     dateFrom?: string;
     dateTo?: string;
+    productTypeId?: string;
 }

@@ -41,6 +41,7 @@ describe('Orders (e2e)', () => {
   let paymentTypeId: string;
   let deliveryTypeId: string;
   let stickerProductTypeId: string;
+  let keychainProductTypeId: string;
 
   beforeAll(async () => {
     createWaybillMock = jest.fn().mockResolvedValue({
@@ -88,17 +89,19 @@ describe('Orders (e2e)', () => {
     accessToken = authUser.accessToken;
     authUserId = authUser.userId;
 
-    const [shipmentType, paymentType, deliveryType, productType] =
+    const [shipmentType, paymentType, deliveryType, productType, keychainType] =
       await Promise.all([
         prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
         prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
         prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
         prisma.productType.findUniqueOrThrow({ where: { code: 'sticker' } }),
+        prisma.productType.findUniqueOrThrow({ where: { code: 'keychain' } }),
       ]);
     shipmentTypeId = shipmentType.id;
     paymentTypeId = paymentType.id;
     deliveryTypeId = deliveryType.id;
     stickerProductTypeId = productType.id;
+    keychainProductTypeId = keychainType.id;
 
     const sender = await prisma.sender.create({
       data: {
@@ -184,6 +187,28 @@ describe('Orders (e2e)', () => {
     const body = response.body as ListOrdersResponseBody;
 
     expect(body.items.some((item) => item.id === seededOrderId)).toBe(true);
+  });
+
+  it('filters by productTypeId to only orders containing a matching item', async () => {
+    const matchingResponse = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ productTypeId: stickerProductTypeId })
+      .expect(200);
+    const matchingBody = matchingResponse.body as ListOrdersResponseBody;
+    expect(matchingBody.items.some((item) => item.id === seededOrderId)).toBe(
+      true,
+    );
+
+    const nonMatchingResponse = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ productTypeId: keychainProductTypeId })
+      .expect(200);
+    const nonMatchingBody = nonMatchingResponse.body as ListOrdersResponseBody;
+    expect(
+      nonMatchingBody.items.some((item) => item.id === seededOrderId),
+    ).toBe(false);
   });
 
   it('gets order detail with mapped embedded data', async () => {

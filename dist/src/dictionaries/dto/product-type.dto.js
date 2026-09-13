@@ -16,6 +16,7 @@ class ProductTypeDto {
     code;
     label;
     isCustom;
+    brand;
 }
 exports.ProductTypeDto = ProductTypeDto;
 __decorate([
@@ -34,4 +35,8 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Boolean)
 ], ProductTypeDto.prototype, "isCustom", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], ProductTypeDto.prototype, "brand", void 0);
 //# sourceMappingURL=product-type.dto.js.map

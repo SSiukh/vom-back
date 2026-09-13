@@ -27,6 +27,7 @@ let ExpensesService = class ExpensesService {
                 typeId: dto.typeId,
                 name: type.requiresName ? dto.name : null,
                 amount: dto.amount,
+                brand: dto.brand ?? null,
             },
         });
         return this.toResponseDto(expense);
@@ -63,6 +64,7 @@ let ExpensesService = class ExpensesService {
                 typeId,
                 name,
                 ...(dto.amount !== undefined && { amount: dto.amount }),
+                ...(dto.brand !== undefined && { brand: dto.brand }),
             },
         });
         return this.toResponseDto(updated);
@@ -93,6 +95,7 @@ let ExpensesService = class ExpensesService {
             typeId: expense.typeId,
             name: expense.name,
             amount: expense.amount,
+            brand: expense.brand,
             createdAt: expense.createdAt,
             updatedAt: expense.updatedAt,
         };

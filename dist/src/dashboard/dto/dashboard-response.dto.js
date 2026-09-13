@@ -18,6 +18,10 @@ class DashboardResponseDto {
     totalRevenue;
     totalExpenses;
     profit;
+    realizedRevenue;
+    pendingRevenue;
+    lostRevenue;
+    sharedExpenses;
     orderCount;
     revenueByDay;
     expensesByCategory;
@@ -33,9 +37,34 @@ __decorate([
     __metadata("design:type", Number)
 ], DashboardResponseDto.prototype, "totalExpenses", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'totalRevenue - totalExpenses' }),
+    (0, swagger_1.ApiProperty)({ description: 'realizedRevenue - totalExpenses' }),
     __metadata("design:type", Number)
 ], DashboardResponseDto.prototype, "profit", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Сума totalAmount замовлень зі статусом "Отримано" — реально отримані гроші',
+    }),
+    __metadata("design:type", Number)
+], DashboardResponseDto.prototype, "realizedRevenue", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Сума замовлень без статусу, або зі статусом "Відправлено"/"Доставлено"/"Переадресовано" — угода ще жива',
+    }),
+    __metadata("design:type", Number)
+], DashboardResponseDto.prototype, "pendingRevenue", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Сума замовлень зі статусом "Відмовлено" — угода не відбулась',
+    }),
+    __metadata("design:type", Number)
+], DashboardResponseDto.prototype, "lostRevenue", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        nullable: true,
+        description: 'Сума спільних витрат (brand: null) за період; null, якщо фільтр brand не застосовано',
+    }),
+    __metadata("design:type", Object)
+], DashboardResponseDto.prototype, "sharedExpenses", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Кількість замовлень за період' }),
     __metadata("design:type", Number)

@@ -11,6 +11,10 @@ export class DashboardController {
 
   @Get()
   getSummary(@Query() query: DashboardQueryDto): Promise<DashboardResponseDto> {
-    return this.dashboardService.getSummary(query.dateFrom, query.dateTo);
+    return this.dashboardService.getSummary(
+      query.dateFrom,
+      query.dateTo,
+      query.brand,
+    );
   }
 }

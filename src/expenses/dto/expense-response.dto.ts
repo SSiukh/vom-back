@@ -13,6 +13,9 @@ export class ExpenseResponseDto {
   @ApiProperty()
   amount: number;
 
+  @ApiProperty({ nullable: true })
+  brand: string | null;
+
   @ApiProperty()
   createdAt: Date;
 

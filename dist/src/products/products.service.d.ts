@@ -10,7 +10,7 @@ export declare class ProductsService {
     private readonly logger;
     constructor(prisma: PrismaService, cloudinary: CloudinaryService);
     create(dto: CreateProductDto, photo: Express.Multer.File): Promise<ProductResponseDto>;
-    findAll(page: number, pageSize: number, typeId?: string): Promise<ListProductsResponseDto>;
+    findAll(page: number, pageSize: number, typeId?: string, name?: string, sortOrder?: 'asc' | 'desc'): Promise<ListProductsResponseDto>;
     findOne(id: string): Promise<ProductResponseDto>;
     update(id: string, dto: UpdateProductDto, photo: Express.Multer.File | undefined): Promise<ProductResponseDto>;
     remove(id: string): Promise<void>;

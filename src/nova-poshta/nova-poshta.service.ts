@@ -3,10 +3,16 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 const NOVA_POSHTA_API_URL = 'https://api.novaposhta.ua/v2.0/json/';
 const POSTOMAT_WAREHOUSE_TYPE_DESCRIPTION = 'Поштомат';
 
-function formatNovaPoshtaDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
+export function formatNovaPoshtaDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Kiev',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date);
+  const day = parts.find((part) => part.type === 'day')!.value;
+  const month = parts.find((part) => part.type === 'month')!.value;
+  const year = parts.find((part) => part.type === 'year')!.value;
 
   return `${day}.${month}.${year}`;
 }

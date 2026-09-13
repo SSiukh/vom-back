@@ -17,7 +17,7 @@ let DashboardService = class DashboardService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getSummary(dateFrom, dateTo) {
+    async getSummary(dateFrom, dateTo, brand) {
         const createdAtFilter = dateFrom || dateTo
             ? {
                 ...(dateFrom && { gte: new Date(dateFrom) }),
@@ -25,21 +25,71 @@ let DashboardService = class DashboardService {
             }
             : undefined;
         const periodWhere = createdAtFilter ? { createdAt: createdAtFilter } : {};
-        const [orders, expenses, expenseTypes, shipmentStatuses] = await Promise.all([
+        const typeIds = brand
+            ? (await this.prisma.productType.findMany({
+                where: { brand },
+                select: { id: true },
+            })).map((type) => type.id)
+            : undefined;
+        const orderWhere = typeIds
+            ? { ...periodWhere, items: { some: { productTypeId: { in: typeIds } } } }
+            : periodWhere;
+        const expenseWhere = brand ? { ...periodWhere, brand } : periodWhere;
+        const [orders, expenses, expenseTypes, shipmentStatuses, sharedExpenses] = await Promise.all([
             this.prisma.order.findMany({
-                where: periodWhere,
-                select: { createdAt: true, totalAmount: true, shipmentStatusId: true },
+                where: orderWhere,
+                select: {
+                    createdAt: true,
+                    totalAmount: true,
+                    shipmentStatusId: true,
+                    items: true,
+                },
             }),
             this.prisma.expense.findMany({
-                where: periodWhere,
+                where: expenseWhere,
                 select: { typeId: true, amount: true },
             }),
             this.prisma.expenseType.findMany(),
             this.prisma.shipmentStatus.findMany(),
+            brand
+                ? this.prisma.expense
+                    .aggregate({
+                    where: {
+                        ...periodWhere,
+                        OR: [{ brand: null }, { brand: { isSet: false } }],
+                    },
+                    _sum: { amount: true },
+                })
+                    .then((result) => result._sum.amount ?? 0)
+                : Promise.resolve(null),
         ]);
-        const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+        const revenueOf = (order) => typeIds
+            ? order.items
+                .filter((item) => typeIds.includes(item.productTypeId))
+                .reduce((sum, item) => sum + item.subtotal, 0)
+            : order.totalAmount;
+        const totalRevenue = orders.reduce((sum, order) => sum + revenueOf(order), 0);
         const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-        const revenueByDay = this.groupRevenueByDay(orders);
+        const statusCodeById = new Map(shipmentStatuses.map((status) => [status.id, status.code]));
+        let realizedRevenue = 0;
+        let pendingRevenue = 0;
+        let lostRevenue = 0;
+        for (const order of orders) {
+            const code = order.shipmentStatusId
+                ? statusCodeById.get(order.shipmentStatusId)
+                : undefined;
+            const revenue = revenueOf(order);
+            if (code === 'received') {
+                realizedRevenue += revenue;
+            }
+            else if (code === 'refused') {
+                lostRevenue += revenue;
+            }
+            else {
+                pendingRevenue += revenue;
+            }
+        }
+        const revenueByDay = this.groupRevenueByDay(orders, revenueOf);
         const expensesByCategory = expenseTypes.map((type) => ({
             expenseTypeId: type.id,
             label: type.label,
@@ -56,18 +106,22 @@ let DashboardService = class DashboardService {
         return {
             totalRevenue,
             totalExpenses,
-            profit: totalRevenue - totalExpenses,
+            profit: realizedRevenue - totalExpenses,
+            realizedRevenue,
+            pendingRevenue,
+            lostRevenue,
             orderCount: orders.length,
+            sharedExpenses,
             revenueByDay,
             expensesByCategory,
             shipmentStatusBreakdown,
         };
     }
-    groupRevenueByDay(orders) {
+    groupRevenueByDay(orders, revenueOf) {
         const revenueByDayMap = new Map();
         for (const order of orders) {
             const day = order.createdAt.toISOString().slice(0, 10);
-            revenueByDayMap.set(day, (revenueByDayMap.get(day) ?? 0) + order.totalAmount);
+            revenueByDayMap.set(day, (revenueByDayMap.get(day) ?? 0) + revenueOf(order));
         }
         return [...revenueByDayMap.entries()]
             .sort(([a], [b]) => a.localeCompare(b))

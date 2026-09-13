@@ -23,7 +23,7 @@ let DashboardController = class DashboardController {
         this.dashboardService = dashboardService;
     }
     getSummary(query) {
-        return this.dashboardService.getSummary(query.dateFrom, query.dateTo);
+        return this.dashboardService.getSummary(query.dateFrom, query.dateTo, query.brand);
     }
 };
 exports.DashboardController = DashboardController;

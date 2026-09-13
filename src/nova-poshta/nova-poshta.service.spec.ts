@@ -1,5 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import * as path from 'node:path';
 import { BadRequestException } from '@nestjs/common';
-import { NovaPoshtaService } from './nova-poshta.service';
+import { NovaPoshtaService, formatNovaPoshtaDate } from './nova-poshta.service';
 
 describe('NovaPoshtaService', () => {
   let service: NovaPoshtaService;
@@ -216,6 +218,30 @@ describe('NovaPoshtaService', () => {
     });
   });
 
+  describe('formatNovaPoshtaDate', () => {
+    it('renders the Kyiv calendar date for a UTC instant just after Kyiv midnight', () => {
+      expect(formatNovaPoshtaDate(new Date('2026-09-12T22:30:00Z'))).toBe(
+        '13.09.2026',
+      );
+    });
+
+    it('is unaffected by the server process own configured timezone', () => {
+      const modulePath = path.join(__dirname, 'nova-poshta.service.ts');
+      const script = `
+        const { formatNovaPoshtaDate } = require(${JSON.stringify(modulePath)});
+        process.stdout.write(formatNovaPoshtaDate(new Date('2026-09-12T22:30:00Z')));
+      `;
+
+      const output = execFileSync(
+        process.execPath,
+        ['-r', 'ts-node/register', '-e', script],
+        { env: { ...process.env, TZ: 'UTC' } },
+      ).toString();
+
+      expect(output).toBe('13.09.2026');
+    }, 15000);
+  });
+
   describe('createWaybill', () => {
     const params = {
       senderCounterpartyRef: 'sender-counterparty-ref',
@@ -245,6 +271,24 @@ describe('NovaPoshtaService', () => {
         waybillNumber: '20450000000000',
         waybillRef: 'waybill-ref',
       });
+    });
+
+    it('sends DateTime as the Kyiv calendar date for the current instant', async () => {
+      mockNovaPoshtaResponse([
+        { Ref: 'waybill-ref', IntDocNumber: '20450000000000' },
+      ]);
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-12T22:30:00Z'));
+
+      try {
+        await service.createWaybill('test-api-key', params);
+
+        const parsedBody = JSON.parse(
+          (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
+        ) as { methodProperties: Record<string, unknown> };
+        expect(parsedBody.methodProperties.DateTime).toBe('13.09.2026');
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('sends PayerType Recipient / PaymentMethod Cash and the fixed weight/volume/seats defaults', async () => {

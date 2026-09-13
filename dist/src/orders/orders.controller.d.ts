@@ -3,6 +3,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { SetOrderStatusFlagsDto } from './dto/set-order-status-flags.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
+import { BulkSyncStatusResponseDto } from './dto/bulk-sync-status-response.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
 export declare class OrdersController {
@@ -11,6 +12,7 @@ export declare class OrdersController {
     create(dto: CreateOrderDto): Promise<OrderResponseDto>;
     findAll(query: ListOrdersQueryDto): Promise<ListOrdersResponseDto>;
     findOne(id: string): Promise<OrderResponseDto>;
+    syncAllStatuses(): Promise<BulkSyncStatusResponseDto>;
     update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto>;
     syncStatus(id: string): Promise<OrderResponseDto>;
     setStatusFlags(id: string, dto: SetOrderStatusFlagsDto): Promise<OrderResponseDto>;

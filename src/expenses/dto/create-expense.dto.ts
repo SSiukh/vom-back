@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsMongoId,
   IsNotEmpty,
   IsNumber,
@@ -28,4 +29,14 @@ export class CreateExpenseDto {
   @IsNumber()
   @Min(0)
   amount: number;
+
+  @ApiPropertyOptional({
+    enum: ['vom', 'm'],
+    nullable: true,
+    description:
+      'Група, до якої належить витрата; відсутнє значення або null — спільна витрата',
+  })
+  @IsOptional()
+  @IsIn(['vom', 'm'])
+  brand?: 'vom' | 'm' | null;
 }

@@ -29,7 +29,11 @@ let SendersService = class SendersService {
     }
     async create(dto) {
         const verified = await this.novaPoshta.verifySender(dto.apiKey);
-        const warehouse = await this.resolveWarehouse(dto.apiKey, dto.cityRef, dto.warehouseRef);
+        const addresses = dto.cityRef && dto.warehouseRef
+            ? [
+                await this.resolveWarehouse(dto.apiKey, dto.cityRef, dto.warehouseRef),
+            ]
+            : [];
         const sender = await this.prisma.sender.create({
             data: {
                 apiKey: this.encryption.encrypt(dto.apiKey),
@@ -37,14 +41,7 @@ let SendersService = class SendersService {
                 phone: verified.phone,
                 npCounterpartyRef: verified.counterpartyRef,
                 npContactPersonRef: verified.contactPersonRef,
-                addresses: [
-                    {
-                        npAddressRef: warehouse.ref,
-                        description: warehouse.description,
-                        cityRef: dto.cityRef,
-                        isDeactivated: false,
-                    },
-                ],
+                addresses,
                 isActive: false,
                 isDeactivated: false,
             },
@@ -108,19 +105,10 @@ let SendersService = class SendersService {
     async setWarehouse(id, dto) {
         const sender = await this.findActiveOrThrow(id);
         const apiKey = this.encryption.decrypt(sender.apiKey);
-        const warehouse = await this.resolveWarehouse(apiKey, dto.cityRef, dto.warehouseRef);
+        const address = await this.resolveWarehouse(apiKey, dto.cityRef, dto.warehouseRef);
         const updated = await this.prisma.sender.update({
             where: { id: sender.id },
-            data: {
-                addresses: [
-                    {
-                        npAddressRef: warehouse.ref,
-                        description: warehouse.description,
-                        cityRef: dto.cityRef,
-                        isDeactivated: false,
-                    },
-                ],
-            },
+            data: { addresses: [address] },
         });
         return this.toResponseDto(updated);
     }
@@ -137,7 +125,12 @@ let SendersService = class SendersService {
         if (!warehouse) {
             throw new common_1.BadRequestException('Unknown warehouse for the given city — verify cityRef/warehouseRef against GET /nova-poshta/warehouses');
         }
-        return warehouse;
+        return {
+            npAddressRef: warehouse.ref,
+            description: warehouse.description,
+            cityRef,
+            isDeactivated: false,
+        };
     }
     async findActiveOrThrow(id) {
         const sender = await this.prisma.sender.findFirst({

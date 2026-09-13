@@ -14,10 +14,13 @@ const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const MAX_PAGE_SIZE = 100;
+const MAX_NAME_QUERY_LENGTH = 100;
 class ListProductsQueryDto {
     page;
     pageSize;
     typeId;
+    name;
+    sortOrder;
 }
 exports.ListProductsQueryDto = ListProductsQueryDto;
 __decorate([
@@ -43,4 +46,23 @@ __decorate([
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], ListProductsQueryDto.prototype, "typeId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Пошук за назвою товару (без урахування регістру)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MaxLength)(MAX_NAME_QUERY_LENGTH),
+    __metadata("design:type", String)
+], ListProductsQueryDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['asc', 'desc'],
+        description: 'Сортування за кількістю на складі; за відсутності — сортування за датою створення',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['asc', 'desc']),
+    __metadata("design:type", String)
+], ListProductsQueryDto.prototype, "sortOrder", void 0);
 //# sourceMappingURL=list-products-query.dto.js.map

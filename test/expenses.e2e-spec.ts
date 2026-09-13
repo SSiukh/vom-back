@@ -12,6 +12,7 @@ interface ExpenseResponseBody {
   typeId: string;
   name: string | null;
   amount: number;
+  brand: string | null;
 }
 
 interface ListExpensesResponseBody {
@@ -173,7 +174,7 @@ describe('Expenses (e2e)', () => {
   });
 
   it('deletes an expense', async () => {
-    const id = createdIds.pop();
+    const [, id] = createdIds;
 
     await request(app.getHttpServer())
       .delete(`/expenses/${id}`)
@@ -183,5 +184,58 @@ describe('Expenses (e2e)', () => {
       .get(`/expenses/${id}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(404);
+
+    createdIds.splice(createdIds.indexOf(id), 1);
+  });
+
+  it('defaults brand to null (shared) when not given on create', async () => {
+    let id: string | undefined;
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/expenses')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ typeId: deliveryTypeId, amount: 42 })
+        .expect(201);
+      const body = response.body as ExpenseResponseBody;
+      id = body.id;
+
+      expect(body.brand).toBeNull();
+    } finally {
+      await safeDeleteByIds(prisma.expense, [id]);
+    }
+  });
+
+  it('creates an expense with a brand and clears it back to shared via update', async () => {
+    let id: string | undefined;
+    try {
+      const createResponse = await request(app.getHttpServer())
+        .post('/expenses')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ typeId: deliveryTypeId, amount: 42, brand: 'vom' })
+        .expect(201);
+      const createdBody = createResponse.body as ExpenseResponseBody;
+      id = createdBody.id;
+
+      expect(createdBody.brand).toBe('vom');
+
+      const updateResponse = await request(app.getHttpServer())
+        .patch(`/expenses/${id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ brand: null })
+        .expect(200);
+      const updatedBody = updateResponse.body as ExpenseResponseBody;
+
+      expect(updatedBody.brand).toBeNull();
+    } finally {
+      await safeDeleteByIds(prisma.expense, [id]);
+    }
+  });
+
+  it('rejects an invalid brand value', () => {
+    return request(app.getHttpServer())
+      .post('/expenses')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ typeId: deliveryTypeId, amount: 42, brand: 'other' })
+      .expect(400);
   });
 });

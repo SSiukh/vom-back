@@ -33,6 +33,7 @@ describe('DictionariesService', () => {
             code: 'sticker',
             label: 'Наклейка',
             isCustom: false,
+            brand: 'm',
             extra: 'x',
           },
         ]),
@@ -93,11 +94,17 @@ describe('DictionariesService', () => {
     ]);
   });
 
-  it('maps product types including isCustom', async () => {
+  it('maps product types including isCustom and brand', async () => {
     const result = await service.findProductTypes();
 
     expect(result).toEqual([
-      { id: '3', code: 'sticker', label: 'Наклейка', isCustom: false },
+      {
+        id: '3',
+        code: 'sticker',
+        label: 'Наклейка',
+        isCustom: false,
+        brand: 'm',
+      },
     ]);
   });
 

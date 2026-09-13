@@ -16,6 +16,7 @@ class ExpenseResponseDto {
     typeId;
     name;
     amount;
+    brand;
     createdAt;
     updatedAt;
 }
@@ -36,6 +37,10 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Number)
 ], ExpenseResponseDto.prototype, "amount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], ExpenseResponseDto.prototype, "brand", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)

@@ -17,6 +17,7 @@ class CreateExpenseDto {
     typeId;
     name;
     amount;
+    brand;
 }
 exports.CreateExpenseDto = CreateExpenseDto;
 __decorate([
@@ -40,4 +41,14 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateExpenseDto.prototype, "amount", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['vom', 'm'],
+        nullable: true,
+        description: 'Група, до якої належить витрата; відсутнє значення або null — спільна витрата',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['vom', 'm']),
+    __metadata("design:type", Object)
+], CreateExpenseDto.prototype, "brand", void 0);
 //# sourceMappingURL=create-expense.dto.js.map

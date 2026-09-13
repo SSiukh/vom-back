@@ -13,6 +13,10 @@ interface DictionaryItemBody {
   label: string;
 }
 
+interface ProductTypeBody extends DictionaryItemBody {
+  brand: string;
+}
+
 describe('Dictionaries (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
@@ -50,16 +54,21 @@ describe('Dictionaries (e2e)', () => {
     await app.close();
   });
 
-  it('returns the seeded product types', async () => {
+  it('returns the seeded product types, including brand', async () => {
     const response = await request(app.getHttpServer())
       .get('/dictionaries/product-types')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
-    const body = response.body as DictionaryItemBody[];
+    const body = response.body as ProductTypeBody[];
 
     expect(body.length).toBeGreaterThanOrEqual(3);
     expect(body.some((item) => item.code === 'sticker')).toBe(true);
     expect(body.some((item) => item.code === 'custom_sticker')).toBe(true);
+    expect(body.find((item) => item.code === 'sticker')?.brand).toBe('m');
+    expect(body.find((item) => item.code === 'keychain')?.brand).toBe('vom');
+    expect(body.find((item) => item.code === 'custom_sticker')?.brand).toBe(
+      'vom',
+    );
   });
 
   it('returns the seeded shipment statuses', async () => {

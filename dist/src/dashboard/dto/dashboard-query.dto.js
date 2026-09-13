@@ -15,6 +15,7 @@ const class_validator_1 = require("class-validator");
 class DashboardQueryDto {
     dateFrom;
     dateTo;
+    brand;
 }
 exports.DashboardQueryDto = DashboardQueryDto;
 __decorate([
@@ -29,4 +30,13 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], DashboardQueryDto.prototype, "dateTo", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['vom', 'm'],
+        description: 'Фільтр за групою товарів/витрат',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['vom', 'm']),
+    __metadata("design:type", String)
+], DashboardQueryDto.prototype, "brand", void 0);
 //# sourceMappingURL=dashboard-query.dto.js.map

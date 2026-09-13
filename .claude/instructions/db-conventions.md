@@ -24,3 +24,16 @@ rather than forking a copy elsewhere.
   - snapshot the referenced data at write time so a later change to the
     original no longer matters (already used for order line items — see
     the `database-architecture` skill's `_snapshot` gotcha).
+- **A nullable field used as a "never set" sentinel needs `isSet`, not a
+  bare `null` filter.** On MongoDB, `where: { field: null }` matches only
+  documents where `field` is explicitly `null` — it does **not** match
+  documents where the field is missing entirely, even though reading such
+  a document back still surfaces `field: null` in JS, and even though raw
+  MongoDB's own `{ field: null }` query matches both cases. When a
+  nullable field's absence is meant to carry meaning (e.g. an optional
+  `brand` on `Expense` where "not set" means "shared" across older
+  documents written before the field existed), any `where` filter meant to
+  catch that case must be
+  `{ OR: [{ field: null }, { field: { isSet: false } }] }` — confirmed live
+  against Atlas (`Expense.brand`, `dashboard.service.ts`'s `sharedExpenses`
+  aggregate).

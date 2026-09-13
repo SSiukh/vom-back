@@ -29,6 +29,7 @@ export class ExpensesService {
         typeId: dto.typeId,
         name: type.requiresName ? (dto.name as string) : null,
         amount: dto.amount,
+        brand: dto.brand ?? null,
       },
     });
 
@@ -78,6 +79,7 @@ export class ExpensesService {
         typeId,
         name,
         ...(dto.amount !== undefined && { amount: dto.amount }),
+        ...(dto.brand !== undefined && { brand: dto.brand }),
       },
     });
 
@@ -118,6 +120,7 @@ export class ExpensesService {
       typeId: expense.typeId,
       name: expense.name,
       amount: expense.amount,
+      brand: expense.brand,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     };

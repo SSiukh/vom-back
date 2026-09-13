@@ -38,7 +38,7 @@ let ProductsController = class ProductsController {
         this.productsService = productsService;
     }
     findAll(query) {
-        return this.productsService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.typeId);
+        return this.productsService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.typeId, query.name, query.sortOrder);
     }
     findOne(id) {
         return this.productsService.findOne(id);

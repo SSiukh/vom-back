@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsMongoId,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -29,4 +36,12 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Фільтр за типом товару — замовлення, що містять хоча б одну позицію цього типу',
+  })
+  @IsOptional()
+  @IsMongoId()
+  productTypeId?: string;
 }

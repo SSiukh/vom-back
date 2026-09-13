@@ -10,8 +10,32 @@ export class DashboardResponseDto {
   @ApiProperty({ description: 'Сумарна вартість всіх витрат за період' })
   totalExpenses: number;
 
-  @ApiProperty({ description: 'totalRevenue - totalExpenses' })
+  @ApiProperty({ description: 'realizedRevenue - totalExpenses' })
   profit: number;
+
+  @ApiProperty({
+    description:
+      'Сума totalAmount замовлень зі статусом "Отримано" — реально отримані гроші',
+  })
+  realizedRevenue: number;
+
+  @ApiProperty({
+    description:
+      'Сума замовлень без статусу, або зі статусом "Відправлено"/"Доставлено"/"Переадресовано" — угода ще жива',
+  })
+  pendingRevenue: number;
+
+  @ApiProperty({
+    description: 'Сума замовлень зі статусом "Відмовлено" — угода не відбулась',
+  })
+  lostRevenue: number;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Сума спільних витрат (brand: null) за період; null, якщо фільтр brand не застосовано',
+  })
+  sharedExpenses: number | null;
 
   @ApiProperty({ description: 'Кількість замовлень за період' })
   orderCount: number;

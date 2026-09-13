@@ -21,18 +21,33 @@ async function main() {
   await Promise.all([
     prisma.productType.upsert({
       where: { code: 'sticker' },
-      update: { label: 'Наклейка', isCustom: false },
-      create: { code: 'sticker', label: 'Наклейка', isCustom: false },
+      update: { label: 'Наклейка', isCustom: false, brand: 'm' },
+      create: {
+        code: 'sticker',
+        label: 'Наклейка',
+        isCustom: false,
+        brand: 'm',
+      },
     }),
     prisma.productType.upsert({
       where: { code: 'keychain' },
-      update: { label: 'Брелок', isCustom: false },
-      create: { code: 'keychain', label: 'Брелок', isCustom: false },
+      update: { label: 'Брелок', isCustom: false, brand: 'vom' },
+      create: {
+        code: 'keychain',
+        label: 'Брелок',
+        isCustom: false,
+        brand: 'vom',
+      },
     }),
     prisma.productType.upsert({
       where: { code: 'custom_sticker' },
-      update: { label: 'Кастомна наклейка', isCustom: true },
-      create: { code: 'custom_sticker', label: 'Кастомна наклейка', isCustom: true },
+      update: { label: 'Кастомна наклейка', isCustom: true, brand: 'vom' },
+      create: {
+        code: 'custom_sticker',
+        label: 'Кастомна наклейка',
+        isCustom: true,
+        brand: 'vom',
+      },
     }),
   ]);
 
@@ -58,12 +73,20 @@ async function main() {
     prisma.expenseType.upsert({
       where: { code: 'raw_poster' },
       update: { label: 'Сировина плакат', requiresName: false },
-      create: { code: 'raw_poster', label: 'Сировина плакат', requiresName: false },
+      create: {
+        code: 'raw_poster',
+        label: 'Сировина плакат',
+        requiresName: false,
+      },
     }),
     prisma.expenseType.upsert({
       where: { code: 'keychain_blank' },
       update: { label: 'Заготовки для брелків', requiresName: false },
-      create: { code: 'keychain_blank', label: 'Заготовки для брелків', requiresName: false },
+      create: {
+        code: 'keychain_blank',
+        label: 'Заготовки для брелків',
+        requiresName: false,
+      },
     }),
     prisma.expenseType.upsert({
       where: { code: 'delivery' },
@@ -96,10 +119,27 @@ async function main() {
   ]);
 
   const shipmentStatuses = [
-    { code: 'shipped', label: 'Відправлено', npStatusCodes: ['4', '41', '5', '6'] },
-    { code: 'delivered', label: 'Доставлено', npStatusCodes: ['7', '8'] },
+    {
+      code: 'shipped',
+      label: 'Відправлено',
+      npStatusCodes: ['4', '41', '5', '6'],
+    },
+    {
+      code: 'delivered',
+      label: 'Доставлено',
+      npStatusCodes: ['7', '8', '107'],
+    },
     { code: 'received', label: 'Отримано', npStatusCodes: ['9', '10', '11'] },
-    { code: 'refused', label: 'Відмовлено', npStatusCodes: ['102', '103', '108'] },
+    {
+      code: 'refused',
+      label: 'Відмовлено',
+      npStatusCodes: ['102', '103', '108'],
+    },
+    {
+      code: 'redirected',
+      label: 'Переадресовано',
+      npStatusCodes: ['104'],
+    },
   ];
 
   const seenNpStatusCodes = new Set<string>();

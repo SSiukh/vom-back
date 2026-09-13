@@ -71,7 +71,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         if (!senderAddress) {
             throw new common_1.BadRequestException('Sender address not found or deactivated');
         }
-        const { items, totalAmount, stockDecrements } = await this.resolveItems(dto.items);
+        const { items, totalAmount, stockDecrements, willBeOutOfStock } = await this.resolveItems(dto.items);
         if (paymentType.code === 'partial' && dto.partialAmount > totalAmount) {
             throw new common_1.BadRequestException('partialAmount cannot exceed the order total');
         }
@@ -130,10 +130,11 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         npWaybillNumber: waybill.waybillNumber,
                         npWaybillRef: waybill.waybillRef,
                         shipmentStatusId: null,
+                        isOutOfStock: willBeOutOfStock,
                     },
                 }),
                 ...stockDecrements.map(({ productId, quantity }) => this.prisma.product.update({
-                    where: { id: productId, stockQuantity: { gte: quantity } },
+                    where: { id: productId },
                     data: { stockQuantity: { decrement: quantity } },
                 })),
             ]);
@@ -142,7 +143,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         catch (error) {
             await this.cleanupOrphanedWaybill(apiKey, waybill.waybillRef);
             if (this.isConcurrencyConflict(error)) {
-                throw new common_1.BadRequestException('Not enough stock — a concurrent order already reserved it');
+                throw new common_1.BadRequestException('A concurrent write conflicted with this order — please retry');
             }
             throw error;
         }
@@ -185,6 +186,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         let items = order.items;
         let totalAmount = order.totalAmount;
         let stockDecrements = [];
+        let willBeOutOfStock = false;
         if (dto.items) {
             const freedQuantityByProduct = new Map();
             for (const restore of stockRestores) {
@@ -195,6 +197,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
             items = resolved.items;
             totalAmount = resolved.totalAmount;
             stockDecrements = resolved.stockDecrements;
+            willBeOutOfStock = resolved.willBeOutOfStock;
         }
         if (paymentType.code === 'partial' &&
             resolvedPartialAmount > totalAmount) {
@@ -272,6 +275,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                         partialAmount: resolvedPartialAmount,
                         totalAmount,
                         items,
+                        ...(willBeOutOfStock && { isOutOfStock: true }),
                     },
                 }),
                 ...stockRestores.map(({ productId, quantity }) => this.prisma.product.update({
@@ -279,7 +283,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     data: { stockQuantity: { increment: quantity } },
                 })),
                 ...stockDecrements.map(({ productId, quantity }) => this.prisma.product.update({
-                    where: { id: productId, stockQuantity: { gte: quantity } },
+                    where: { id: productId },
                     data: { stockQuantity: { decrement: quantity } },
                 })),
             ]);
@@ -289,14 +293,14 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 await this.cleanupFailedOrderUpdate(waybillUpdateContext);
             }
             if (this.isConcurrencyConflict(error)) {
-                throw new common_1.BadRequestException('This order was modified concurrently, or stock was depleted by another order — please retry');
+                throw new common_1.BadRequestException('This order was modified concurrently — please retry');
             }
             throw error;
         }
         const updated = await this.findOrThrow(id);
         return this.toResponseDto(updated);
     }
-    async findAll(page, pageSize, dateFrom, dateTo) {
+    async findAll(page, pageSize, dateFrom, dateTo, productTypeId) {
         const where = {
             ...((dateFrom || dateTo) && {
                 createdAt: {
@@ -304,6 +308,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                     ...(dateTo && { lte: new Date(dateTo) }),
                 },
             }),
+            ...(productTypeId && { items: { some: { productTypeId } } }),
         };
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({
@@ -362,6 +367,64 @@ let OrdersService = OrdersService_1 = class OrdersService {
         });
         return this.toResponseDto(updated);
     }
+    async syncAllStatuses() {
+        const orders = await this.prisma.order.findMany({
+            where: { npWaybillNumber: { not: null } },
+        });
+        if (orders.length === 0) {
+            return { totalOrders: 0, updatedCount: 0, unmappedCount: 0 };
+        }
+        const ordersBySender = new Map();
+        for (const order of orders) {
+            const existing = ordersBySender.get(order.senderId) ?? [];
+            existing.push(order);
+            ordersBySender.set(order.senderId, existing);
+        }
+        const shipmentStatuses = await this.prisma.shipmentStatus.findMany();
+        let updatedCount = 0;
+        let unmappedCount = 0;
+        for (const [senderId, senderOrders] of ordersBySender) {
+            const sender = await this.prisma.sender.findUnique({
+                where: { id: senderId },
+            });
+            if (!sender) {
+                unmappedCount += senderOrders.length;
+                this.logger.warn(`Skipping status sync for ${senderOrders.length} order(s) — sender ${senderId} no longer exists`);
+                continue;
+            }
+            const apiKey = this.encryption.decrypt(sender.apiKey);
+            const waybillNumbers = senderOrders
+                .map((order) => order.npWaybillNumber)
+                .filter((number) => number !== null);
+            const statuses = await this.novaPoshta.getShipmentStatuses(apiKey, waybillNumbers);
+            const statusByWaybill = new Map(statuses.map((status) => [status.waybillNumber, status]));
+            for (const order of senderOrders) {
+                const status = order.npWaybillNumber
+                    ? statusByWaybill.get(order.npWaybillNumber)
+                    : undefined;
+                if (!status) {
+                    unmappedCount += 1;
+                    this.logger.warn(`No Nova Poshta tracking status returned for order ${order.id} (waybill ${order.npWaybillNumber}) — leaving it unchanged`);
+                    continue;
+                }
+                const shipmentStatus = shipmentStatuses.find((known) => known.npStatusCodes.includes(status.statusCode));
+                if (!shipmentStatus) {
+                    unmappedCount += 1;
+                    this.logger.warn(`Nova Poshta status code "${status.statusCode}" (${status.status}) for order ${order.id} does not map to any known shipment status — leaving it unchanged`);
+                    continue;
+                }
+                if (shipmentStatus.id === order.shipmentStatusId) {
+                    continue;
+                }
+                await this.prisma.order.update({
+                    where: { id: order.id },
+                    data: { shipmentStatusId: shipmentStatus.id },
+                });
+                updatedCount += 1;
+            }
+        }
+        return { totalOrders: orders.length, updatedCount, unmappedCount };
+    }
     async setStatusFlags(id, dto) {
         await this.findOrThrow(id);
         const updated = await this.prisma.order.update({
@@ -378,13 +441,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
     async resolveItems(items, freedQuantityByProduct = new Map()) {
         const resolvedItems = [];
         const stockDecrements = [];
+        const remainingStockByProduct = new Map();
         let totalAmount = 0;
-        const requestedQuantityByProduct = new Map();
-        for (const item of items) {
-            if (item.productId) {
-                requestedQuantityByProduct.set(item.productId, (requestedQuantityByProduct.get(item.productId) ?? 0) + item.quantity);
-            }
-        }
         for (const item of items) {
             const productType = await this.prisma.productType.findUnique({
                 where: { id: item.productTypeId },
@@ -425,11 +483,6 @@ let OrdersService = OrdersService_1 = class OrdersService {
             if (item.isPromo && product.promoPrice === null) {
                 throw new common_1.BadRequestException(`Product "${product.name}" has no promo price`);
             }
-            const totalRequestedQuantity = requestedQuantityByProduct.get(product.id) ?? item.quantity;
-            const availableStock = product.stockQuantity + (freedQuantityByProduct.get(product.id) ?? 0);
-            if (availableStock < totalRequestedQuantity) {
-                throw new common_1.BadRequestException(`Not enough stock for product "${product.name}"`);
-            }
             const unitPrice = item.isPromo && product.promoPrice !== null
                 ? product.promoPrice
                 : product.price;
@@ -446,8 +499,17 @@ let OrdersService = OrdersService_1 = class OrdersService {
             });
             totalAmount += subtotal;
             stockDecrements.push({ productId: product.id, quantity: item.quantity });
+            const baselineStock = remainingStockByProduct.get(product.id) ??
+                product.stockQuantity + (freedQuantityByProduct.get(product.id) ?? 0);
+            remainingStockByProduct.set(product.id, baselineStock - item.quantity);
         }
-        return { items: resolvedItems, totalAmount, stockDecrements };
+        const willBeOutOfStock = [...remainingStockByProduct.values()].some((remaining) => remaining <= 0);
+        return {
+            items: resolvedItems,
+            totalAmount,
+            stockDecrements,
+            willBeOutOfStock,
+        };
     }
     validateDeliveryDetails(deliveryTypeCode, details) {
         if (deliveryTypeCode === 'warehouse' && !details.warehouseRef) {

@@ -6,9 +6,10 @@ describe('DashboardService', () => {
   let service: DashboardService;
   let prisma: {
     order: { findMany: jest.Mock };
-    expense: { findMany: jest.Mock };
+    expense: { findMany: jest.Mock; aggregate: jest.Mock };
     expenseType: { findMany: jest.Mock };
     shipmentStatus: { findMany: jest.Mock };
+    productType: { findMany: jest.Mock };
   };
 
   const orders = [
@@ -55,11 +56,15 @@ describe('DashboardService', () => {
   beforeEach(async () => {
     prisma = {
       order: { findMany: jest.fn().mockResolvedValue(orders) },
-      expense: { findMany: jest.fn().mockResolvedValue(expenses) },
+      expense: {
+        findMany: jest.fn().mockResolvedValue(expenses),
+        aggregate: jest.fn().mockResolvedValue({ _sum: { amount: 0 } }),
+      },
       expenseType: { findMany: jest.fn().mockResolvedValue(expenseTypes) },
       shipmentStatus: {
         findMany: jest.fn().mockResolvedValue(shipmentStatuses),
       },
+      productType: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module = await Test.createTestingModule({
@@ -77,7 +82,7 @@ describe('DashboardService', () => {
 
     expect(result.totalRevenue).toBe(350);
     expect(result.totalExpenses).toBe(60);
-    expect(result.profit).toBe(290);
+    expect(result.profit).toBe(-60);
     expect(result.orderCount).toBe(3);
   });
 
@@ -160,5 +165,191 @@ describe('DashboardService', () => {
     expect(prisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: {} }),
     );
+  });
+
+  it('returns sharedExpenses as null and never queries it when no brand filter is given', async () => {
+    const result = await service.getSummary();
+
+    expect(result.sharedExpenses).toBeNull();
+    expect(prisma.expense.aggregate).not.toHaveBeenCalled();
+  });
+
+  describe('brand ("group") filter', () => {
+    const productTypesVom = [{ id: 'type-vom-1' }, { id: 'type-vom-2' }];
+
+    const ordersWithItems = [
+      {
+        createdAt: new Date('2026-01-01T10:00:00Z'),
+        totalAmount: 100,
+        shipmentStatusId: 'delivered-id',
+        items: [
+          { productTypeId: 'type-vom-1', subtotal: 60 },
+          { productTypeId: 'type-m-1', subtotal: 40 },
+        ],
+      },
+      {
+        createdAt: new Date('2026-01-02T09:00:00Z'),
+        totalAmount: 200,
+        shipmentStatusId: null,
+        items: [{ productTypeId: 'type-m-1', subtotal: 200 }],
+      },
+    ];
+
+    beforeEach(() => {
+      prisma.order.findMany.mockResolvedValue(ordersWithItems);
+      prisma.productType.findMany.mockResolvedValue(productTypesVom);
+    });
+
+    it('resolves the brand’s product types and filters orders to those with at least one matching item', async () => {
+      await service.getSummary(undefined, undefined, 'vom');
+
+      expect(prisma.productType.findMany).toHaveBeenCalledWith({
+        where: { brand: 'vom' },
+        select: { id: true },
+      });
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            items: {
+              some: { productTypeId: { in: ['type-vom-1', 'type-vom-2'] } },
+            },
+          },
+        }),
+      );
+    });
+
+    it('sums only the matching-brand items subtotal for totalRevenue and revenueByDay', async () => {
+      const result = await service.getSummary(undefined, undefined, 'vom');
+
+      expect(result.totalRevenue).toBe(60);
+      expect(result.revenueByDay).toEqual([
+        { date: '2026-01-01', revenue: 60 },
+        { date: '2026-01-02', revenue: 0 },
+      ]);
+    });
+
+    it('filters expenses to only the chosen brand, excluding shared ones', async () => {
+      await service.getSummary(undefined, undefined, 'vom');
+
+      expect(prisma.expense.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { brand: 'vom' } }),
+      );
+    });
+
+    it('computes sharedExpenses as the brand:null sum for the period', async () => {
+      prisma.expense.aggregate.mockResolvedValueOnce({ _sum: { amount: 75 } });
+
+      const result = await service.getSummary(
+        '2026-01-01',
+        '2026-01-31',
+        'vom',
+      );
+
+      expect(prisma.expense.aggregate).toHaveBeenCalledWith({
+        where: {
+          createdAt: {
+            gte: new Date('2026-01-01'),
+            lte: new Date('2026-01-31'),
+          },
+          OR: [{ brand: null }, { brand: { isSet: false } }],
+        },
+        _sum: { amount: true },
+      });
+      expect(result.sharedExpenses).toBe(75);
+    });
+
+    it('defaults sharedExpenses to 0 when there are no shared expenses in the period', async () => {
+      prisma.expense.aggregate.mockResolvedValueOnce({
+        _sum: { amount: null },
+      });
+
+      const result = await service.getSummary(undefined, undefined, 'vom');
+
+      expect(result.sharedExpenses).toBe(0);
+    });
+
+    it('scopes realizedRevenue/pendingRevenue/lostRevenue by matching-brand items too', async () => {
+      const result = await service.getSummary(undefined, undefined, 'vom');
+
+      expect(result.pendingRevenue).toBe(60);
+      expect(result.realizedRevenue).toBe(0);
+      expect(result.lostRevenue).toBe(0);
+      expect(result.totalRevenue).toBe(
+        result.realizedRevenue + result.pendingRevenue + result.lostRevenue,
+      );
+    });
+  });
+
+  describe('revenue split by delivery status (realized/pending/lost)', () => {
+    const statusSplitOrders = [
+      {
+        createdAt: new Date('2026-01-01T10:00:00Z'),
+        totalAmount: 100,
+        shipmentStatusId: 'received-id',
+      },
+      {
+        createdAt: new Date('2026-01-01T11:00:00Z'),
+        totalAmount: 40,
+        shipmentStatusId: 'refused-id',
+      },
+      {
+        createdAt: new Date('2026-01-01T12:00:00Z'),
+        totalAmount: 60,
+        shipmentStatusId: 'shipped-id',
+      },
+      {
+        createdAt: new Date('2026-01-01T13:00:00Z'),
+        totalAmount: 20,
+        shipmentStatusId: 'delivered-id',
+      },
+      {
+        createdAt: new Date('2026-01-01T14:00:00Z'),
+        totalAmount: 30,
+        shipmentStatusId: null,
+      },
+      {
+        createdAt: new Date('2026-01-01T15:00:00Z'),
+        totalAmount: 15,
+        shipmentStatusId: 'unknown-future-status-id',
+      },
+    ];
+
+    beforeEach(() => {
+      prisma.order.findMany.mockResolvedValue(statusSplitOrders);
+    });
+
+    it('buckets a "received" order into realizedRevenue', async () => {
+      const result = await service.getSummary();
+
+      expect(result.realizedRevenue).toBe(100);
+    });
+
+    it('buckets a "refused" order into lostRevenue', async () => {
+      const result = await service.getSummary();
+
+      expect(result.lostRevenue).toBe(40);
+    });
+
+    it('buckets shipped/delivered/no-status/unknown-status orders into pendingRevenue', async () => {
+      const result = await service.getSummary();
+
+      expect(result.pendingRevenue).toBe(60 + 20 + 30 + 15);
+    });
+
+    it('computes profit as realizedRevenue - totalExpenses, not totalRevenue - totalExpenses', async () => {
+      const result = await service.getSummary();
+
+      expect(result.profit).toBe(result.realizedRevenue - result.totalExpenses);
+      expect(result.profit).toBe(100 - 60);
+    });
+
+    it('holds the invariant totalRevenue === realizedRevenue + pendingRevenue + lostRevenue', async () => {
+      const result = await service.getSummary();
+
+      expect(result.totalRevenue).toBe(
+        result.realizedRevenue + result.pendingRevenue + result.lostRevenue,
+      );
+      expect(result.totalRevenue).toBe(265);
+    });
   });
 });

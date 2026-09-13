@@ -41,6 +41,7 @@ export class DictionariesService {
       code: type.code,
       label: type.label,
       isCustom: type.isCustom,
+      brand: type.brand,
     }));
   }
 

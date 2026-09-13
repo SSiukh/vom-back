@@ -35,10 +35,13 @@ let OrdersController = class OrdersController {
         return this.ordersService.create(dto);
     }
     findAll(query) {
-        return this.ordersService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.dateFrom, query.dateTo);
+        return this.ordersService.findAll(query.page ?? DEFAULT_PAGE, query.pageSize ?? DEFAULT_PAGE_SIZE, query.dateFrom, query.dateTo, query.productTypeId);
     }
     findOne(id) {
         return this.ordersService.findOne(id);
+    }
+    syncAllStatuses() {
+        return this.ordersService.syncAllStatuses();
     }
     update(id, dto) {
         return this.ordersService.update(id, dto);
@@ -81,6 +84,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], OrdersController.prototype, "findOne", null);
+__decorate([
+    (0, throttler_1.Throttle)({
+        default: {
+            limit: NOVA_POSHTA_CALL_THROTTLE_LIMIT,
+            ttl: NOVA_POSHTA_CALL_THROTTLE_TTL_MS,
+        },
+    }),
+    (0, common_1.Patch)('sync-statuses'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], OrdersController.prototype, "syncAllStatuses", null);
 __decorate([
     (0, throttler_1.Throttle)({
         default: {

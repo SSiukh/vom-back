@@ -35,6 +35,7 @@ describe('ExpensesService', () => {
     typeId: plainType.id,
     name: null,
     amount: 150,
+    brand: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
   };
@@ -108,6 +109,28 @@ describe('ExpensesService', () => {
       ];
       expect(data.name).toBeNull();
     });
+
+    it('defaults brand to null (shared) when not given', async () => {
+      await service.create({ typeId: plainType.id, amount: 100 });
+
+      const [[{ data }]] = prisma.expense.create.mock.calls as [
+        [{ data: { brand: string | null } }],
+      ];
+      expect(data.brand).toBeNull();
+    });
+
+    it('stores the given brand', async () => {
+      await service.create({
+        typeId: plainType.id,
+        amount: 100,
+        brand: 'vom',
+      });
+
+      const [[{ data }]] = prisma.expense.create.mock.calls as [
+        [{ data: { brand: string | null } }],
+      ];
+      expect(data.brand).toBe('vom');
+    });
   });
 
   describe('findAll', () => {
@@ -135,6 +158,17 @@ describe('ExpensesService', () => {
       const result = await service.findOne('expense-id');
 
       expect(result.id).toBe('expense-id');
+    });
+
+    it('includes brand in the mapped response', async () => {
+      prisma.expense.findUnique.mockResolvedValueOnce({
+        ...storedExpense,
+        brand: 'vom',
+      });
+
+      const result = await service.findOne('expense-id');
+
+      expect(result.brand).toBe('vom');
     });
   });
 
@@ -191,6 +225,38 @@ describe('ExpensesService', () => {
       expect(prisma.expense.update).toHaveBeenCalledWith({
         where: { id: 'expense-id' },
         data: { typeId: otherType.id, name: 'Оренда', amount: 250 },
+      });
+    });
+
+    it('leaves brand untouched when not given in the update body', async () => {
+      await service.update('expense-id', { amount: 250 });
+
+      const [[{ data }]] = prisma.expense.update.mock.calls as [
+        [{ data: Record<string, unknown> }],
+      ];
+      expect('brand' in data).toBe(false);
+    });
+
+    it('sets brand to the given group', async () => {
+      await service.update('expense-id', { brand: 'm' });
+
+      expect(prisma.expense.update).toHaveBeenCalledWith({
+        where: { id: 'expense-id' },
+        data: { typeId: plainType.id, name: null, brand: 'm' },
+      });
+    });
+
+    it('clears brand back to shared when explicitly given null', async () => {
+      prisma.expense.findUnique.mockResolvedValueOnce({
+        ...storedExpense,
+        brand: 'vom',
+      });
+
+      await service.update('expense-id', { brand: null });
+
+      expect(prisma.expense.update).toHaveBeenCalledWith({
+        where: { id: 'expense-id' },
+        data: { typeId: plainType.id, name: null, brand: null },
       });
     });
   });
