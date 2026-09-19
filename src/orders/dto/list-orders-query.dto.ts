@@ -44,4 +44,11 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsMongoId()
   productTypeId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Фільтр за відправником (id з GET /senders)',
+  })
+  @IsOptional()
+  @IsMongoId()
+  senderId?: string;
 }

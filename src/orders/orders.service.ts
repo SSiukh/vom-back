@@ -426,6 +426,7 @@ export class OrdersService {
     dateFrom?: string,
     dateTo?: string,
     productTypeId?: string,
+    senderId?: string,
   ): Promise<ListOrdersResponseDto> {
     const where = {
       ...((dateFrom || dateTo) && {
@@ -435,6 +436,7 @@ export class OrdersService {
         },
       }),
       ...(productTypeId && { items: { some: { productTypeId } } }),
+      ...(senderId && { senderId }),
     };
 
     const [orders, total] = await Promise.all([

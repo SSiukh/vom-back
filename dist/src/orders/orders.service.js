@@ -300,7 +300,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const updated = await this.findOrThrow(id);
         return this.toResponseDto(updated);
     }
-    async findAll(page, pageSize, dateFrom, dateTo, productTypeId) {
+    async findAll(page, pageSize, dateFrom, dateTo, productTypeId, senderId) {
         const where = {
             ...((dateFrom || dateTo) && {
                 createdAt: {
@@ -309,6 +309,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 },
             }),
             ...(productTypeId && { items: { some: { productTypeId } } }),
+            ...(senderId && { senderId }),
         };
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({

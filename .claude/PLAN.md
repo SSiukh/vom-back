@@ -1389,3 +1389,20 @@ dominate once foundations, Senders, and Products are in place.
       rule (unrelated to and untouched by this change).
       250/250 unit, 81/81 e2e; DB counts stable (orders:128, products:99,
       senders:2, users:3, expenses:5).
+
+## Filter GET /orders by senderId
+
+- [x] **Done.** User: frontend needs a sender filter on the orders page. Backend:
+      `ListOrdersQueryDto.senderId` (`@IsOptional() @IsMongoId()`),
+      passed through `OrdersController.findAll` to
+      `OrdersService.findAll` (`...(senderId && { senderId })`, ANDed with
+      the existing date/`productTypeId` filters). The sender dropdown data
+      already exists (`GET /senders`, max `pageSize` 100), no new endpoint.
+      Known edge, flagged to frontend rather than built speculatively:
+      `GET /senders` hides deactivated senders, so their historical
+      orders can't be selected via that dropdown. Unit tests (single
+      filter + combined with `productTypeId`), e2e tests (match, no-match
+      → empty list, malformed id → 400), `API_REFERENCE.md` (both copies)
+      updated. 252/252 unit, 83/83 e2e, DB stable.
+      `reviewer` pass: no findings (noted `findAll`'s 6 positional params as a
+      nit — switch to passing the whole query DTO if a 7th filter arrives).

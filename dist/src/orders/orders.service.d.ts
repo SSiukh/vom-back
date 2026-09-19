@@ -15,7 +15,7 @@ export declare class OrdersService {
     constructor(prisma: PrismaService, encryption: EncryptionService, novaPoshta: NovaPoshtaService);
     create(dto: CreateOrderDto): Promise<OrderResponseDto>;
     update(id: string, dto: UpdateOrderDto): Promise<OrderResponseDto>;
-    findAll(page: number, pageSize: number, dateFrom?: string, dateTo?: string, productTypeId?: string): Promise<ListOrdersResponseDto>;
+    findAll(page: number, pageSize: number, dateFrom?: string, dateTo?: string, productTypeId?: string, senderId?: string): Promise<ListOrdersResponseDto>;
     findOne(id: string): Promise<OrderResponseDto>;
     remove(id: string): Promise<void>;
     syncStatus(id: string): Promise<OrderResponseDto>;

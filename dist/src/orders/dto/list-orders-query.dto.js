@@ -20,6 +20,7 @@ class ListOrdersQueryDto {
     dateFrom;
     dateTo;
     productTypeId;
+    senderId;
 }
 exports.ListOrdersQueryDto = ListOrdersQueryDto;
 __decorate([
@@ -59,4 +60,12 @@ __decorate([
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], ListOrdersQueryDto.prototype, "productTypeId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Фільтр за відправником (id з GET /senders)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsMongoId)(),
+    __metadata("design:type", String)
+], ListOrdersQueryDto.prototype, "senderId", void 0);
 //# sourceMappingURL=list-orders-query.dto.js.map

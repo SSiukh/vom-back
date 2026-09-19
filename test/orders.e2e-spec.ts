@@ -211,6 +211,34 @@ describe('Orders (e2e)', () => {
     ).toBe(false);
   });
 
+  it('filters by senderId to only that sender orders', async () => {
+    const matchingResponse = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ senderId: seededSenderId, pageSize: 100 })
+      .expect(200);
+    const matchingBody = matchingResponse.body as ListOrdersResponseBody;
+    expect(matchingBody.items.some((item) => item.id === seededOrderId)).toBe(
+      true,
+    );
+
+    const nonMatchingResponse = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ senderId: '507f1f77bcf86cd799439011' })
+      .expect(200);
+    const nonMatchingBody = nonMatchingResponse.body as ListOrdersResponseBody;
+    expect(nonMatchingBody.total).toBe(0);
+  });
+
+  it('rejects a malformed senderId filter with 400', () => {
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ senderId: 'not-a-valid-id' })
+      .expect(400);
+  });
+
   it('gets order detail with mapped embedded data', async () => {
     const response = await request(app.getHttpServer())
       .get(`/orders/${seededOrderId}`)

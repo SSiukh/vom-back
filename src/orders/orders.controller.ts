@@ -51,6 +51,7 @@ export class OrdersController {
       query.dateFrom,
       query.dateTo,
       query.productTypeId,
+      query.senderId,
     );
   }
 

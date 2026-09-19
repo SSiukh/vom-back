@@ -218,6 +218,41 @@ describe('OrdersService', () => {
       );
     });
 
+    it('filters by senderId', async () => {
+      await service.findAll(
+        1,
+        10,
+        undefined,
+        undefined,
+        undefined,
+        'sender-id',
+      );
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { senderId: 'sender-id' } }),
+      );
+    });
+
+    it('combines the senderId and productTypeId filters', async () => {
+      await service.findAll(
+        1,
+        10,
+        undefined,
+        undefined,
+        'sticker-type-id',
+        'sender-id',
+      );
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            items: { some: { productTypeId: 'sticker-type-id' } },
+            senderId: 'sender-id',
+          },
+        }),
+      );
+    });
+
     it('filters by productTypeId using an array "some" match', async () => {
       await service.findAll(1, 10, undefined, undefined, 'sticker-type-id');
 
