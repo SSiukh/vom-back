@@ -6,4 +6,5 @@ export declare class ListCrmQueryDto {
     productTypeId?: string;
     shipmentStatusId?: string;
     sortOrder?: 'asc' | 'desc';
+    search?: string;
 }

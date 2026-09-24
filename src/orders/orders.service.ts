@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseRangeEnd, parseRangeStart } from '../shared/utils/kyiv-time';
+import { buildOrderSearchFilter } from '../shared/utils/order-search';
 import { EncryptionService } from '../shared/encryption/encryption.service';
 import {
   NovaPoshtaService,
@@ -20,6 +21,7 @@ import { BulkSyncStatusResponseDto } from './dto/bulk-sync-status-response.dto';
 import { OrderItemDto } from './dto/order-item.dto';
 import { DeliveryDetailsDto } from './dto/delivery-details.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { ListOrdersResponseDto } from './dto/list-orders-response.dto';
 import { Order, OrderItem } from './entities/order.entity';
 
@@ -424,20 +426,20 @@ export class OrdersService {
   async findAll(
     page: number,
     pageSize: number,
-    dateFrom?: string,
-    dateTo?: string,
-    productTypeId?: string,
-    senderId?: string,
+    query: ListOrdersQueryDto = {},
   ): Promise<ListOrdersResponseDto> {
     const where = {
-      ...((dateFrom || dateTo) && {
+      ...((query.dateFrom || query.dateTo) && {
         createdAt: {
-          ...(dateFrom && { gte: parseRangeStart(dateFrom) }),
-          ...(dateTo && { lte: parseRangeEnd(dateTo) }),
+          ...(query.dateFrom && { gte: parseRangeStart(query.dateFrom) }),
+          ...(query.dateTo && { lte: parseRangeEnd(query.dateTo) }),
         },
       }),
-      ...(productTypeId && { items: { some: { productTypeId } } }),
-      ...(senderId && { senderId }),
+      ...(query.productTypeId && {
+        items: { some: { productTypeId: query.productTypeId } },
+      }),
+      ...(query.senderId && { senderId: query.senderId }),
+      ...buildOrderSearchFilter(query.search),
     };
 
     const [orders, total] = await Promise.all([

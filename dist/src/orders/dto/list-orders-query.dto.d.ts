@@ -5,4 +5,5 @@ export declare class ListOrdersQueryDto {
     dateTo?: string;
     productTypeId?: string;
     senderId?: string;
+    search?: string;
 }

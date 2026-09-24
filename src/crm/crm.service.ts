@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseRangeEnd, parseRangeStart } from '../shared/utils/kyiv-time';
+import { buildOrderSearchFilter } from '../shared/utils/order-search';
 import { ListCrmQueryDto } from './dto/list-crm-query.dto';
 import { CrmRowResponseDto } from './dto/crm-row-response.dto';
 import { ListCrmResponseDto } from './dto/list-crm-response.dto';
@@ -30,6 +31,7 @@ export class CrmService {
       ...(query.shipmentStatusId && {
         shipmentStatusId: query.shipmentStatusId,
       }),
+      ...buildOrderSearchFilter(query.search),
     };
 
     const [orders, aggregate] = await Promise.all([

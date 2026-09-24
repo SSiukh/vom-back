@@ -1439,3 +1439,22 @@ dominate once foundations, Senders, and Products are in place.
       `'Europe/Kiev'` is duplicated between `kyiv-time.ts` and
       `nova-poshta.service.ts`. 265 unit, 84 e2e, DB stable (orders:250,
       users:3).
+
+## Search by waybill number / recipient name (Orders + CRM table)
+
+- [x] User: add search by waybill number or recipient full name (ПІБ) to
+      the Orders page and the CRM table page. Single optional `search`
+      query param (max 100 chars, `@IsString() @IsNotEmpty()`) on both
+      `GET /orders` and `GET /crm/table`. Shared
+      `src/shared/utils/order-search.ts` (`buildOrderSearchFilter`): split
+      on whitespace, every token must match (case-insensitive `contains`,
+      regex-escaped via the existing `escapeRegExp`) `npWaybillNumber` OR
+      recipient `lastName`/`firstName`/`middleName` — so a multi-word ПІБ
+      matches across fields. Prisma composite-type filter syntax
+      (`recipient: { is: { ... } }` + `mode: 'insensitive'`) verified live
+      against Atlas before implementing. Also refactored
+      `OrdersService.findAll` from 7 positional params to
+      `(page, pageSize, query: ListOrdersQueryDto)` (matches
+      `CrmService.findTable`; addresses `reviewer`'s earlier "switch when a
+      7th filter arrives" nit). Unit tests (util, both services), e2e tests
+      (both endpoints), `API_REFERENCE.md` (both copies).

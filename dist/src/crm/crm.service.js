@@ -13,6 +13,7 @@ exports.CrmService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const kyiv_time_1 = require("../shared/utils/kyiv-time");
+const order_search_1 = require("../shared/utils/order-search");
 const DEFAULT_SORT_ORDER = 'desc';
 let CrmService = class CrmService {
     prisma;
@@ -33,6 +34,7 @@ let CrmService = class CrmService {
             ...(query.shipmentStatusId && {
                 shipmentStatusId: query.shipmentStatusId,
             }),
+            ...(0, order_search_1.buildOrderSearchFilter)(query.search),
         };
         const [orders, aggregate] = await Promise.all([
             this.prisma.order.findMany({

@@ -228,6 +228,29 @@ describe('CRM table (e2e)', () => {
     );
   });
 
+  it('searches by recipient name (case-insensitive) and by waybill number', async () => {
+    const byName = await request(app.getHttpServer())
+      .get('/crm/table')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ search: 'брелоковий', pageSize: 100 })
+      .expect(200);
+    const byNameIds = (byName.body as ListCrmResponseBody).items.map(
+      (item) => item.id,
+    );
+    expect(byNameIds).toContain(keychainOrderId);
+    expect(byNameIds).not.toContain(stickerOrderId);
+
+    const byWaybill = await request(app.getHttpServer())
+      .get('/crm/table')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ search: 'e2e-crm-waybill-sticker-2' })
+      .expect(200);
+    const byWaybillIds = (byWaybill.body as ListCrmResponseBody).items.map(
+      (item) => item.id,
+    );
+    expect(byWaybillIds).toEqual([stickerOrder2Id]);
+  });
+
   it('filters by productTypeId to only the matching orders', async () => {
     const response = await request(app.getHttpServer())
       .get('/crm/table')

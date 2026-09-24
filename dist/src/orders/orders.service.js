@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 const kyiv_time_1 = require("../shared/utils/kyiv-time");
+const order_search_1 = require("../shared/utils/order-search");
 const encryption_service_1 = require("../shared/encryption/encryption.service");
 const nova_poshta_service_1 = require("../nova-poshta/nova-poshta.service");
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -301,16 +302,19 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const updated = await this.findOrThrow(id);
         return this.toResponseDto(updated);
     }
-    async findAll(page, pageSize, dateFrom, dateTo, productTypeId, senderId) {
+    async findAll(page, pageSize, query = {}) {
         const where = {
-            ...((dateFrom || dateTo) && {
+            ...((query.dateFrom || query.dateTo) && {
                 createdAt: {
-                    ...(dateFrom && { gte: (0, kyiv_time_1.parseRangeStart)(dateFrom) }),
-                    ...(dateTo && { lte: (0, kyiv_time_1.parseRangeEnd)(dateTo) }),
+                    ...(query.dateFrom && { gte: (0, kyiv_time_1.parseRangeStart)(query.dateFrom) }),
+                    ...(query.dateTo && { lte: (0, kyiv_time_1.parseRangeEnd)(query.dateTo) }),
                 },
             }),
-            ...(productTypeId && { items: { some: { productTypeId } } }),
-            ...(senderId && { senderId }),
+            ...(query.productTypeId && {
+                items: { some: { productTypeId: query.productTypeId } },
+            }),
+            ...(query.senderId && { senderId: query.senderId }),
+            ...(0, order_search_1.buildOrderSearchFilter)(query.search),
         };
         const [orders, total] = await Promise.all([
             this.prisma.order.findMany({

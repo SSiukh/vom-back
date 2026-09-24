@@ -22,6 +22,7 @@ class ListCrmQueryDto {
     productTypeId;
     shipmentStatusId;
     sortOrder;
+    search;
 }
 exports.ListCrmQueryDto = ListCrmQueryDto;
 __decorate([
@@ -77,4 +78,14 @@ __decorate([
     (0, class_validator_1.IsIn)(['asc', 'desc']),
     __metadata("design:type", String)
 ], ListCrmQueryDto.prototype, "sortOrder", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Пошук за номером накладної або ПІБ отримувача (без урахування регістру; кілька слів — усі мають знайтись)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], ListCrmQueryDto.prototype, "search", void 0);
 //# sourceMappingURL=list-crm-query.dto.js.map

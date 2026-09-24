@@ -231,6 +231,33 @@ describe('Orders (e2e)', () => {
     expect(nonMatchingBody.total).toBe(0);
   });
 
+  it('searches by recipient name parts and by waybill number', async () => {
+    const byName = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ search: 'e2e тестовий отримувач', senderId: seededSenderId })
+      .expect(200);
+    const byNameBody = byName.body as ListOrdersResponseBody;
+    expect(byNameBody.items.some((item) => item.id === seededOrderId)).toBe(
+      true,
+    );
+
+    const noMatch = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ search: 'zzz-no-such-recipient-qqq' })
+      .expect(200);
+    expect((noMatch.body as ListOrdersResponseBody).total).toBe(0);
+  });
+
+  it('rejects an over-long search with 400', () => {
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ search: 'x'.repeat(101) })
+      .expect(400);
+  });
+
   it('rejects a malformed senderId filter with 400', () => {
     return request(app.getHttpServer())
       .get('/orders')

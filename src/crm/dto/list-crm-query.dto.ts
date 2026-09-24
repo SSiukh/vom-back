@@ -5,8 +5,11 @@ import {
   IsIn,
   IsInt,
   IsMongoId,
+  IsNotEmpty,
   IsOptional,
+  IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -59,4 +62,14 @@ export class ListCrmQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({
+    description:
+      'Пошук за номером накладної або ПІБ отримувача (без урахування регістру; кілька слів — усі мають знайтись)',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  search?: string;
 }

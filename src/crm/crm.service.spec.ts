@@ -103,6 +103,16 @@ describe('CrmService', () => {
     );
   });
 
+  it('applies the search filter across waybill number and recipient name parts', async () => {
+    await service.findTable(1, 10, { search: 'Іваненко Іван' });
+
+    const [[args]] = prisma.order.findMany.mock.calls as [
+      [{ where: { AND: { OR: unknown[] }[] } }],
+    ];
+    expect(args.where.AND).toHaveLength(2);
+    expect(args.where.AND[0].OR).toHaveLength(4);
+  });
+
   it('filters by productTypeId using an array "some" match', async () => {
     await service.findTable(1, 10, { productTypeId: 'sticker-type-id' });
 

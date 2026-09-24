@@ -21,6 +21,7 @@ class ListOrdersQueryDto {
     dateTo;
     productTypeId;
     senderId;
+    search;
 }
 exports.ListOrdersQueryDto = ListOrdersQueryDto;
 __decorate([
@@ -68,4 +69,14 @@ __decorate([
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], ListOrdersQueryDto.prototype, "senderId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Пошук за номером накладної або ПІБ отримувача (без урахування регістру; кілька слів — усі мають знайтись)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], ListOrdersQueryDto.prototype, "search", void 0);
 //# sourceMappingURL=list-orders-query.dto.js.map

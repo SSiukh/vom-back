@@ -201,7 +201,10 @@ describe('OrdersService', () => {
 
   describe('findAll', () => {
     it('filters by a createdAt date range when provided', async () => {
-      await service.findAll(1, 10, '2026-01-01', '2026-01-31');
+      await service.findAll(1, 10, {
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
 
       const [[args]] = prisma.order.findMany.mock.calls as [
         [{ where: { createdAt: { gte: Date; lte: Date } } }],
@@ -223,14 +226,7 @@ describe('OrdersService', () => {
     });
 
     it('filters by senderId', async () => {
-      await service.findAll(
-        1,
-        10,
-        undefined,
-        undefined,
-        undefined,
-        'sender-id',
-      );
+      await service.findAll(1, 10, { senderId: 'sender-id' });
 
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { senderId: 'sender-id' } }),
@@ -238,14 +234,10 @@ describe('OrdersService', () => {
     });
 
     it('combines the senderId and productTypeId filters', async () => {
-      await service.findAll(
-        1,
-        10,
-        undefined,
-        undefined,
-        'sticker-type-id',
-        'sender-id',
-      );
+      await service.findAll(1, 10, {
+        productTypeId: 'sticker-type-id',
+        senderId: 'sender-id',
+      });
 
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -257,8 +249,18 @@ describe('OrdersService', () => {
       );
     });
 
+    it('applies the search filter across waybill number and recipient name parts', async () => {
+      await service.findAll(1, 10, { search: 'Іваненко Іван' });
+
+      const [[args]] = prisma.order.findMany.mock.calls as [
+        [{ where: { AND: { OR: unknown[] }[] } }],
+      ];
+      expect(args.where.AND).toHaveLength(2);
+      expect(args.where.AND[0].OR).toHaveLength(4);
+    });
+
     it('filters by productTypeId using an array "some" match', async () => {
-      await service.findAll(1, 10, undefined, undefined, 'sticker-type-id');
+      await service.findAll(1, 10, { productTypeId: 'sticker-type-id' });
 
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
