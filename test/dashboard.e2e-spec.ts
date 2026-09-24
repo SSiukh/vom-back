@@ -482,4 +482,83 @@ describe('Dashboard (e2e)', () => {
       expect(body.profit).toBe(body.realizedRevenue - body.totalExpenses);
     });
   });
+
+  describe('Kyiv-time day boundaries', () => {
+    let lateNightOrderId: string;
+
+    beforeAll(async () => {
+      const [shipmentType, paymentType, deliveryType, stickerType] =
+        await Promise.all([
+          prisma.shipmentType.findUniqueOrThrow({
+            where: { code: 'documents' },
+          }),
+          prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
+          prisma.deliveryType.findUniqueOrThrow({
+            where: { code: 'warehouse' },
+          }),
+          prisma.productType.findUniqueOrThrow({ where: { code: 'sticker' } }),
+        ]);
+
+      const order = await prisma.order.create({
+        data: {
+          shipmentTypeId: shipmentType.id,
+          paymentTypeId: paymentType.id,
+          totalAmount: 77,
+          items: [
+            {
+              productId: null,
+              productTypeId: stickerType.id,
+              nameSnapshot: 'E2E Dashboard Наліпка (Kyiv midnight)',
+              photoUrlSnapshot: null,
+              price: 77,
+              isPromo: false,
+              quantity: 1,
+              subtotal: 77,
+            },
+          ],
+          senderId: seededSenderId,
+          senderAddressRef: 'e2e-dashboard-address-ref',
+          recipient: {
+            phone: '+380504444444',
+            lastName: 'Тест',
+            firstName: 'Північ',
+            middleName: null,
+          },
+          deliveryTypeId: deliveryType.id,
+          deliveryDetails: {
+            cityRef: 'e2e-city-ref',
+            warehouseRef: 'e2e-warehouse-ref',
+          },
+          npWaybillNumber: 'e2e-dashboard-kyiv-midnight-waybill',
+          createdAt: new Date('2027-07-10T21:30:00.000Z'),
+        },
+      });
+      lateNightOrderId = order.id;
+    });
+
+    afterAll(async () => {
+      await safeDeleteByIds(prisma.order, [lateNightOrderId]);
+    });
+
+    it('counts an order created at 00:30 Kyiv time on the Kyiv day, not the UTC day', async () => {
+      const kyivDay = await request(app.getHttpServer())
+        .get('/dashboard')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .query({ dateFrom: '2027-07-11', dateTo: '2027-07-11' })
+        .expect(200);
+      const kyivDayBody = kyivDay.body as DashboardResponseBody;
+      expect(kyivDayBody.orderCount).toBe(1);
+      expect(kyivDayBody.totalRevenue).toBe(77);
+      expect(kyivDayBody.revenueByDay).toEqual([
+        { date: '2027-07-11', revenue: 77 },
+      ]);
+
+      const previousDay = await request(app.getHttpServer())
+        .get('/dashboard')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .query({ dateFrom: '2027-07-10', dateTo: '2027-07-10' })
+        .expect(200);
+      expect((previousDay.body as DashboardResponseBody).orderCount).toBe(0);
+    });
+  });
 });

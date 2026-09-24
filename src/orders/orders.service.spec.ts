@@ -80,8 +80,8 @@ describe('OrdersService', () => {
     shipmentStatusId: null,
     isPacked: false,
     isOutOfStock: false,
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
+    createdAt: new Date('2025-12-31T22:00:00.000Z'),
+    updatedAt: new Date('2025-12-31T22:00:00.000Z'),
   };
 
   const shipmentType = { id: 'shipment-type-id', code: 'parcel' };
@@ -206,8 +206,12 @@ describe('OrdersService', () => {
       const [[args]] = prisma.order.findMany.mock.calls as [
         [{ where: { createdAt: { gte: Date; lte: Date } } }],
       ];
-      expect(args.where.createdAt.gte).toEqual(new Date('2026-01-01'));
-      expect(args.where.createdAt.lte).toEqual(new Date('2026-01-31'));
+      expect(args.where.createdAt.gte).toEqual(
+        new Date('2025-12-31T22:00:00.000Z'),
+      );
+      expect(args.where.createdAt.lte).toEqual(
+        new Date('2026-01-31T21:59:59.999Z'),
+      );
     });
 
     it('queries everything when no filters are given', async () => {

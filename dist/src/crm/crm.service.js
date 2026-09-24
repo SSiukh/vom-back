@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CrmService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const kyiv_time_1 = require("../shared/utils/kyiv-time");
 const DEFAULT_SORT_ORDER = 'desc';
 let CrmService = class CrmService {
     prisma;
@@ -22,8 +23,8 @@ let CrmService = class CrmService {
         const where = {
             ...((query.dateFrom || query.dateTo) && {
                 createdAt: {
-                    ...(query.dateFrom && { gte: new Date(query.dateFrom) }),
-                    ...(query.dateTo && { lte: new Date(query.dateTo) }),
+                    ...(query.dateFrom && { gte: (0, kyiv_time_1.parseRangeStart)(query.dateFrom) }),
+                    ...(query.dateTo && { lte: (0, kyiv_time_1.parseRangeEnd)(query.dateTo) }),
                 },
             }),
             ...(query.productTypeId && {

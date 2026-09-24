@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { parseRangeEnd, parseRangeStart } from '../shared/utils/kyiv-time';
 import { EncryptionService } from '../shared/encryption/encryption.service';
 import {
   NovaPoshtaService,
@@ -431,8 +432,8 @@ export class OrdersService {
     const where = {
       ...((dateFrom || dateTo) && {
         createdAt: {
-          ...(dateFrom && { gte: new Date(dateFrom) }),
-          ...(dateTo && { lte: new Date(dateTo) }),
+          ...(dateFrom && { gte: parseRangeStart(dateFrom) }),
+          ...(dateTo && { lte: parseRangeEnd(dateTo) }),
         },
       }),
       ...(productTypeId && { items: { some: { productTypeId } } }),

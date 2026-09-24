@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { parseRangeEnd, parseRangeStart } from '../shared/utils/kyiv-time';
 import { ListCrmQueryDto } from './dto/list-crm-query.dto';
 import { CrmRowResponseDto } from './dto/crm-row-response.dto';
 import { ListCrmResponseDto } from './dto/list-crm-response.dto';
@@ -19,8 +20,8 @@ export class CrmService {
     const where = {
       ...((query.dateFrom || query.dateTo) && {
         createdAt: {
-          ...(query.dateFrom && { gte: new Date(query.dateFrom) }),
-          ...(query.dateTo && { lte: new Date(query.dateTo) }),
+          ...(query.dateFrom && { gte: parseRangeStart(query.dateFrom) }),
+          ...(query.dateTo && { lte: parseRangeEnd(query.dateTo) }),
         },
       }),
       ...(query.productTypeId && {

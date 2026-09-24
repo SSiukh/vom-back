@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  kyivDayKey,
+  parseRangeEnd,
+  parseRangeStart,
+} from '../shared/utils/kyiv-time';
 import { DashboardResponseDto } from './dto/dashboard-response.dto';
 import { Order } from './entities/order.entity';
 import { Expense } from './entities/expense.entity';
@@ -24,8 +29,8 @@ export class DashboardService {
     const createdAtFilter =
       dateFrom || dateTo
         ? {
-            ...(dateFrom && { gte: new Date(dateFrom) }),
-            ...(dateTo && { lte: new Date(dateTo) }),
+            ...(dateFrom && { gte: parseRangeStart(dateFrom) }),
+            ...(dateTo && { lte: parseRangeEnd(dateTo) }),
           }
         : undefined;
     const periodWhere = createdAtFilter ? { createdAt: createdAtFilter } : {};
@@ -152,10 +157,7 @@ export class DashboardService {
   ): { date: string; revenue: number }[] {
     const revenueByDayMap = new Map<string, number>();
     for (const order of orders) {
-      // Bucketed by UTC calendar day, not the shop's local (Europe/Kyiv) day —
-      // a deliberate simplicity trade-off: an order placed 00:00-03:00 Kyiv
-      // time lands on the previous UTC day in this chart.
-      const day = order.createdAt.toISOString().slice(0, 10);
+      const day = kyivDayKey(order.createdAt);
       revenueByDayMap.set(
         day,
         (revenueByDayMap.get(day) ?? 0) + revenueOf(order),

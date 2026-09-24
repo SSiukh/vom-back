@@ -1406,3 +1406,36 @@ dominate once foundations, Senders, and Products are in place.
       updated. 252/252 unit, 83/83 e2e, DB stable.
       `reviewer` pass: no findings (noted `findAll`'s 6 positional params as a
       nit — switch to passing the whole query DTO if a 7th filter arrives).
+
+## Everything date-related in Kyiv time (dashboard/orders/CRM filters + day bucketing)
+
+- [x] **Done.** User: "everything must be in Kyiv time" — triggered by the dashboard
+      showing nothing for 25.09 right after Kyiv midnight (the 00:01 Kyiv
+      order was stored as 24.09T21:01Z, bucketed/filtered as 24.09).
+      **Reverses the earlier documented decision** to bucket
+      `revenueByDay` by UTC day (that was a deliberate trade-off then;
+      the user now explicitly wants Kyiv). Frontend confirmed to send raw
+      date-input values (`YYYY-MM-DD`) for `dateFrom`/`dateTo` on
+      dashboard/orders/CRM. New `src/shared/utils/kyiv-time.ts`
+      (`parseRangeStart`/`parseRangeEnd`/`kyivDayKey`, `Intl`-based with
+      explicit `Europe/Kiev`, independent of the process TZ): date-only
+      `dateFrom` → Kyiv 00:00; date-only `dateTo` → last millisecond of
+      that Kyiv day (this also fixes a latent bug: `dateTo=25.09` used to
+      mean `lte 25.09T00:00Z`, silently excluding the selected end day);
+      full ISO timestamps pass through unchanged. Applied to
+      `DashboardService`, `OrdersService.findAll`, `CrmService.findTable`;
+      `groupRevenueByDay` uses `kyivDayKey` (also removes the old
+      zero-comments-violating UTC comment). Unit tests (util incl. DST
+      days, process-TZ independence; service expectations moved to Kyiv
+      boundaries; day-bucketing test), e2e test seeding an order at 00:30
+      Kyiv. `API_REFERENCE.md` (both copies) updated.
+      `reviewer` pass: no blocking findings; DST days (2026-03-29,
+      2026-10-25), month/year rollover and the `h23` midnight edge
+      independently verified; no other UTC/process-local date logic left
+      in `src/`. Two nits left as-is: a calendar-invalid but well-formed
+      date such as `2026-02-31` passes `@IsDateString()` and now rolls to
+      03-03 instead of erroring (a date input can't produce it; use
+      `@IsDateString({ strict: true })` if strictness is ever wanted);
+      `'Europe/Kiev'` is duplicated between `kyiv-time.ts` and
+      `nova-poshta.service.ts`. 265 unit, 84 e2e, DB stable (orders:250,
+      users:3).

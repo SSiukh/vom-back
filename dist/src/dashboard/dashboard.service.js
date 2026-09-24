@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const kyiv_time_1 = require("../shared/utils/kyiv-time");
 let DashboardService = class DashboardService {
     prisma;
     constructor(prisma) {
@@ -20,8 +21,8 @@ let DashboardService = class DashboardService {
     async getSummary(dateFrom, dateTo, brand) {
         const createdAtFilter = dateFrom || dateTo
             ? {
-                ...(dateFrom && { gte: new Date(dateFrom) }),
-                ...(dateTo && { lte: new Date(dateTo) }),
+                ...(dateFrom && { gte: (0, kyiv_time_1.parseRangeStart)(dateFrom) }),
+                ...(dateTo && { lte: (0, kyiv_time_1.parseRangeEnd)(dateTo) }),
             }
             : undefined;
         const periodWhere = createdAtFilter ? { createdAt: createdAtFilter } : {};
@@ -120,7 +121,7 @@ let DashboardService = class DashboardService {
     groupRevenueByDay(orders, revenueOf) {
         const revenueByDayMap = new Map();
         for (const order of orders) {
-            const day = order.createdAt.toISOString().slice(0, 10);
+            const day = (0, kyiv_time_1.kyivDayKey)(order.createdAt);
             revenueByDayMap.set(day, (revenueByDayMap.get(day) ?? 0) + revenueOf(order));
         }
         return [...revenueByDayMap.entries()]

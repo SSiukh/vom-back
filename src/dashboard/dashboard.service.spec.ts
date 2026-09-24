@@ -95,6 +95,43 @@ describe('DashboardService', () => {
     ]);
   });
 
+  it('buckets revenue by the Kyiv calendar day, not the UTC day', async () => {
+    prisma.order.findMany.mockResolvedValue([
+      {
+        createdAt: new Date('2026-09-24T20:59:00Z'),
+        totalAmount: 10,
+        shipmentStatusId: null,
+      },
+      {
+        createdAt: new Date('2026-09-24T21:01:00Z'),
+        totalAmount: 20,
+        shipmentStatusId: null,
+      },
+    ]);
+
+    const result = await service.getSummary();
+
+    expect(result.revenueByDay).toEqual([
+      { date: '2026-09-24', revenue: 10 },
+      { date: '2026-09-25', revenue: 20 },
+    ]);
+  });
+
+  it('treats a date-only dateFrom/dateTo as whole Kyiv days', async () => {
+    await service.getSummary('2026-09-25', '2026-09-25');
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          createdAt: {
+            gte: new Date('2026-09-24T21:00:00.000Z'),
+            lte: new Date('2026-09-25T20:59:59.999Z'),
+          },
+        },
+      }),
+    );
+  });
+
   it('groups expenses by category, including zero for a type with no expenses', async () => {
     const result = await service.getSummary();
 
@@ -141,8 +178,8 @@ describe('DashboardService', () => {
       expect.objectContaining({
         where: {
           createdAt: {
-            gte: new Date('2026-01-01'),
-            lte: new Date('2026-01-31'),
+            gte: new Date('2025-12-31T22:00:00.000Z'),
+            lte: new Date('2026-01-31T21:59:59.999Z'),
           },
         },
       }),
@@ -151,8 +188,8 @@ describe('DashboardService', () => {
       expect.objectContaining({
         where: {
           createdAt: {
-            gte: new Date('2026-01-01'),
-            lte: new Date('2026-01-31'),
+            gte: new Date('2025-12-31T22:00:00.000Z'),
+            lte: new Date('2026-01-31T21:59:59.999Z'),
           },
         },
       }),
@@ -248,8 +285,8 @@ describe('DashboardService', () => {
       expect(prisma.expense.aggregate).toHaveBeenCalledWith({
         where: {
           createdAt: {
-            gte: new Date('2026-01-01'),
-            lte: new Date('2026-01-31'),
+            gte: new Date('2025-12-31T22:00:00.000Z'),
+            lte: new Date('2026-01-31T21:59:59.999Z'),
           },
           OR: [{ brand: null }, { brand: { isSet: false } }],
         },

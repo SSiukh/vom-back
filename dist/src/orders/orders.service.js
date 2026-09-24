@@ -14,6 +14,7 @@ exports.OrdersService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
+const kyiv_time_1 = require("../shared/utils/kyiv-time");
 const encryption_service_1 = require("../shared/encryption/encryption.service");
 const nova_poshta_service_1 = require("../nova-poshta/nova-poshta.service");
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -304,8 +305,8 @@ let OrdersService = OrdersService_1 = class OrdersService {
         const where = {
             ...((dateFrom || dateTo) && {
                 createdAt: {
-                    ...(dateFrom && { gte: new Date(dateFrom) }),
-                    ...(dateTo && { lte: new Date(dateTo) }),
+                    ...(dateFrom && { gte: (0, kyiv_time_1.parseRangeStart)(dateFrom) }),
+                    ...(dateTo && { lte: (0, kyiv_time_1.parseRangeEnd)(dateTo) }),
                 },
             }),
             ...(productTypeId && { items: { some: { productTypeId } } }),
