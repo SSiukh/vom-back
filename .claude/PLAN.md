@@ -1487,3 +1487,15 @@ dominate once foundations, Senders, and Products are in place.
       out of scope): `GET /crm/table`'s own `shipmentStatusId` filter has
       no `"none"`/`isSet` handling at all — same asymmetry noted when the
       search feature shipped.
+
+## isSettled flag on Order (PATCH /orders/:id/status-flags)
+
+- [x] User: add an optional manual checkbox flag `isSettled` to Order —
+      means the money was sorted out and everything due was transferred.
+      Boolean, default `false`, same shape as `isPacked` / `isOutOfStock`.
+      Set by the frontend through the existing
+      `PATCH /orders/:id/status-flags` (`SetOrderStatusFlagsDto`), returned
+      on `OrderResponseDto`. No filter on list endpoints yet (not requested).
+      Schema change: `Order.isSettled Boolean @default(false) @map("is_settled")`
+      (no `db push` — Mongo field addition only, `prisma generate`).
+      Unit + e2e tests, `API_REFERENCE.md` (both copies).

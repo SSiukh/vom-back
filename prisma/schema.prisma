@@ -205,6 +205,7 @@ model Order {
   shipmentStatus   ShipmentStatus? @relation(fields: [shipmentStatusId], references: [id])
   isPacked         Boolean         @default(false) @map("is_packed")
   isOutOfStock     Boolean         @default(false) @map("is_out_of_stock")
+  isSettled        Boolean         @default(false) @map("is_settled")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 

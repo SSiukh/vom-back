@@ -450,6 +450,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 ...(dto.isOutOfStock !== undefined && {
                     isOutOfStock: dto.isOutOfStock,
                 }),
+                ...(dto.isSettled !== undefined && { isSettled: dto.isSettled }),
             },
         });
         return this.toResponseDto(updated);
@@ -651,6 +652,7 @@ let OrdersService = OrdersService_1 = class OrdersService {
             shipmentStatusId: order.shipmentStatusId,
             isPacked: order.isPacked,
             isOutOfStock: order.isOutOfStock,
+            isSettled: order.isSettled,
             createdAt: order.createdAt,
             updatedAt: order.updatedAt,
         };

@@ -52,6 +52,11 @@ export class OrderResponseDto {
   @ApiProperty({ description: 'Позначка "Відсутній товар"' })
   isOutOfStock: boolean;
 
+  @ApiProperty({
+    description: 'Позначка: гроші розібрано і все потрібне скинуто',
+  })
+  isSettled: boolean;
+
   @ApiProperty()
   createdAt: Date;
 

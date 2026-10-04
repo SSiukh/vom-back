@@ -31,6 +31,7 @@ class OrderResponseDto {
     shipmentStatusId;
     isPacked;
     isOutOfStock;
+    isSettled;
     createdAt;
     updatedAt;
 }
@@ -99,6 +100,12 @@ __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Позначка "Відсутній товар"' }),
     __metadata("design:type", Boolean)
 ], OrderResponseDto.prototype, "isOutOfStock", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Позначка: гроші розібрано і все потрібне скинуто',
+    }),
+    __metadata("design:type", Boolean)
+], OrderResponseDto.prototype, "isSettled", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)

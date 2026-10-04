@@ -80,6 +80,7 @@ describe('OrdersService', () => {
     shipmentStatusId: null,
     isPacked: false,
     isOutOfStock: false,
+    isSettled: false,
     createdAt: new Date('2025-12-31T22:00:00.000Z'),
     updatedAt: new Date('2025-12-31T22:00:00.000Z'),
   };
@@ -1258,6 +1259,15 @@ describe('OrdersService', () => {
       expect(prisma.order.update).toHaveBeenCalledWith({
         where: { id: 'order-id' },
         data: { isOutOfStock: true },
+      });
+    });
+
+    it('sets isSettled when provided', async () => {
+      await service.setStatusFlags('order-id', { isSettled: true });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-id' },
+        data: { isSettled: true },
       });
     });
 

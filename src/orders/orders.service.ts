@@ -630,6 +630,7 @@ export class OrdersService {
         ...(dto.isOutOfStock !== undefined && {
           isOutOfStock: dto.isOutOfStock,
         }),
+        ...(dto.isSettled !== undefined && { isSettled: dto.isSettled }),
       },
     });
 
@@ -926,6 +927,7 @@ export class OrdersService {
       shipmentStatusId: order.shipmentStatusId,
       isPacked: order.isPacked,
       isOutOfStock: order.isOutOfStock,
+      isSettled: order.isSettled,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

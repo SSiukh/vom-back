@@ -37,3 +37,17 @@ rather than forking a copy elsewhere.
   `{ OR: [{ field: null }, { field: { isSet: false } }] }` — confirmed live
   against Atlas (`Expense.brand`, `dashboard.service.ts`'s `sharedExpenses`
   aggregate).
+- **A non-nullable Boolean with `@default(...)` added after documents
+  already exist is NOT matched by Prisma `where` filters on those
+  documents.** Prisma applies the default when *reading* a document that
+  lacks the field, so `findMany`/`findUnique` return the default correctly.
+  But a `where` on that field (`{ flag: false }`, `{ NOT: { flag: true } }`)
+  does not match the legacy documents, and `isSet` is not available on
+  scalar Boolean fields. Verified live against Atlas on
+  `Order.isSettled`: 303 legacy documents without `is_settled` read as
+  `false`, while `where: { isSettled: false }` and
+  `where: { NOT: { isSettled: true } }` both returned 0. So if a filter on
+  such a flag is ever needed, backfill the field on existing documents
+  first (an explicit `updateMany` / Mongo `$set` on the missing ones) and
+  get approval before writing to a production collection. Do not add a
+  filter that relies on the default alone.

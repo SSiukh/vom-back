@@ -227,7 +227,7 @@ document, with Nova Poshta waybill creation/update/deletion kept in sync.
 | `GET /orders/:id` | default | — | `OrderResponseDto` |
 | `PATCH /orders/:id` | 20/min | `UpdateOrderDto` (all fields optional) | `OrderResponseDto` |
 | `PATCH /orders/:id/sync-status` | 20/min | — | `OrderResponseDto` (manual Nova Poshta status pull, no polling) |
-| `PATCH /orders/:id/status-flags` | default | `SetOrderStatusFlagsDto {isPacked?, isOutOfStock?}` | `OrderResponseDto` |
+| `PATCH /orders/:id/status-flags` | default | `SetOrderStatusFlagsDto {isPacked?, isOutOfStock?, isSettled?}` | `OrderResponseDto` |
 | `DELETE /orders/:id` | 20/min | — | `204` |
 
 `productTypeId` (optional) filters to orders containing at least one line
@@ -289,7 +289,7 @@ don't change retroactively if the underlying product changes later),
 `recipient`, `deliveryDetails`, and `npWaybillNumber`/`npWaybillRef`/
 `shipmentStatusId` (all nullable until the Nova Poshta call completes).
 
-**`isPacked`/`isOutOfStock` are a separate, manual status axis — not
+**`isPacked`/`isOutOfStock`/`isSettled` are a separate, manual status axis — not
 Nova Poshta tracking.** `shipmentStatusId` is auto-synced from real NP
 tracking events (Доставлено/Відправлено/Отримано/Відмовлено/
 Переадресовано) via `PATCH /orders/:id/sync-status`; `isPacked`
@@ -297,9 +297,12 @@ tracking events (Доставлено/Відправлено/Отримано/В
 (default `false`) with no dictionary/enum behind them and no connection
 to Nova Poshta —
 the operator sets them directly via `PATCH /orders/:id/status-flags`
-(either/both, independently) once fulfillment work on the order actually
-starts, sometime after creation. The frontend owns the label/UI for these;
-the backend just stores and returns the two flags.
+(any of the three, independently) once fulfillment work on the order actually
+starts, sometime after creation. `isSettled` ("гроші розібрано і все потрібне
+скинуто") is the same kind of boolean (default `false`), set manually once the
+money side of the order is resolved and everything due has been transferred.
+The frontend owns the label/UI for these; the backend just stores and returns
+the three flags.
 
 **Payment types and cash-on-delivery (накладений платіж):** three
 `payment_types` codes drive what Nova Poshta is told to collect on

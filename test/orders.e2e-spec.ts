@@ -17,6 +17,7 @@ interface OrderResponseBody {
   shipmentStatusId: string | null;
   isPacked: boolean;
   isOutOfStock: boolean;
+  isSettled: boolean;
 }
 
 interface ListOrdersResponseBody {
@@ -818,30 +819,52 @@ describe('Orders (e2e)', () => {
   });
 
   it('sets isPacked/isOutOfStock independently of Nova Poshta status', async () => {
+    try {
+      const response = await request(app.getHttpServer())
+        .patch(`/orders/${seededOrderId}/status-flags`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ isPacked: true })
+        .expect(200);
+      const body = response.body as OrderResponseBody;
+
+      expect(body.isPacked).toBe(true);
+      expect(body.isOutOfStock).toBe(false);
+
+      const secondResponse = await request(app.getHttpServer())
+        .patch(`/orders/${seededOrderId}/status-flags`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ isOutOfStock: true })
+        .expect(200);
+      const secondBody = secondResponse.body as OrderResponseBody;
+
+      expect(secondBody.isPacked).toBe(true);
+      expect(secondBody.isOutOfStock).toBe(true);
+
+      const settledResponse = await request(app.getHttpServer())
+        .patch(`/orders/${seededOrderId}/status-flags`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ isSettled: true })
+        .expect(200);
+      const settledBody = settledResponse.body as OrderResponseBody;
+
+      expect(settledBody.isSettled).toBe(true);
+      expect(settledBody.isPacked).toBe(true);
+    } finally {
+      await prisma.order.update({
+        where: { id: seededOrderId },
+        data: { isPacked: false, isOutOfStock: false, isSettled: false },
+      });
+    }
+  });
+
+  it('returns isSettled false for an order created without setting it', async () => {
     const response = await request(app.getHttpServer())
-      .patch(`/orders/${seededOrderId}/status-flags`)
+      .get(`/orders/${seededOrderId}`)
       .set('Authorization', `Bearer ${accessToken}`)
-      .send({ isPacked: true })
       .expect(200);
     const body = response.body as OrderResponseBody;
 
-    expect(body.isPacked).toBe(true);
-    expect(body.isOutOfStock).toBe(false);
-
-    const secondResponse = await request(app.getHttpServer())
-      .patch(`/orders/${seededOrderId}/status-flags`)
-      .set('Authorization', `Bearer ${accessToken}`)
-      .send({ isOutOfStock: true })
-      .expect(200);
-    const secondBody = secondResponse.body as OrderResponseBody;
-
-    expect(secondBody.isPacked).toBe(true);
-    expect(secondBody.isOutOfStock).toBe(true);
-
-    await prisma.order.update({
-      where: { id: seededOrderId },
-      data: { isPacked: false, isOutOfStock: false },
-    });
+    expect(body.isSettled).toBe(false);
   });
 
   it('deletes an order, calls Nova Poshta waybill delete and restores stock', async () => {

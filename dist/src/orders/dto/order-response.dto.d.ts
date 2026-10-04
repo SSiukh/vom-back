@@ -18,6 +18,7 @@ export declare class OrderResponseDto {
     shipmentStatusId: string | null;
     isPacked: boolean;
     isOutOfStock: boolean;
+    isSettled: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

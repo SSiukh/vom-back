@@ -11,4 +11,11 @@ export class SetOrderStatusFlagsDto {
   @IsOptional()
   @IsBoolean()
   isOutOfStock?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Позначка: гроші розібрано і все потрібне скинуто',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isSettled?: boolean;
 }
