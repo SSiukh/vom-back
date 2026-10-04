@@ -1458,3 +1458,32 @@ dominate once foundations, Senders, and Products are in place.
       `CrmService.findTable`; addresses `reviewer`'s earlier "switch when a
       7th filter arrives" nit). Unit tests (util, both services), e2e tests
       (both endpoints), `API_REFERENCE.md` (both copies).
+
+## shipmentStatusId filter on GET /orders
+
+- [x] Frontend agent: add `shipmentStatusId` query filter to `GET /orders`,
+      mirroring `GET /crm/table`'s existing filter but additionally
+      accepting the literal `"none"` for orders with no shipment status
+      yet. `ListOrdersQueryDto.shipmentStatusId` validated with
+      `@Matches(/^(none|[0-9a-fA-F]{24})$/)` (plain `@IsMongoId()` can't
+      express the "none" escape hatch). `OrdersService.findAll` deviates
+      from the frontend agent's literal suggestion (a plain
+      `shipmentStatusId: null`): verified live against Atlas that of 290
+      real orders 0 have the field entirely unset (every one goes through
+      `OrdersService.create()`, which always explicitly sets
+      `shipmentStatusId: null`), but per the `isSet` gotcha in
+      `db-conventions.md` a document created without the field at all
+      (e.g. a future script/import/migration bypassing the service) would
+      be missed by a bare `null` filter. So `"none"` maps to
+      `{ OR: [{ shipmentStatusId: null }, { shipmentStatusId: { isSet:
+      false } }] }` instead, otherwise the id passes through unchanged.
+      Unit tests (plain id + the `OR`/`isSet` shape for `"none"`), e2e
+      tests (matching order, `"none"` excluding a statused order — the
+      no-status fixture is created via a raw `prisma.order.create()`
+      without the field, so it's genuinely unset and actually exercises
+      the gap being fixed, not just explicit `null` — and a malformed
+      value rejected with 400), `API_REFERENCE.md` (both copies).
+      `reviewer` pass: no blocking findings. Flagged for later (not fixed,
+      out of scope): `GET /crm/table`'s own `shipmentStatusId` filter has
+      no `"none"`/`isSet` handling at all — same asymmetry noted when the
+      search feature shipped.

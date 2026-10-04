@@ -35,6 +35,7 @@ describe('Orders (e2e)', () => {
   let getShipmentStatusMock: jest.Mock;
   let getShipmentStatusesMock: jest.Mock;
   let seededOrderId: string;
+  let statusedOrderId: string;
   let seededSenderId: string;
   let seededProductId: string;
   let shipmentTypeId: string;
@@ -42,6 +43,7 @@ describe('Orders (e2e)', () => {
   let deliveryTypeId: string;
   let stickerProductTypeId: string;
   let keychainProductTypeId: string;
+  let deliveredStatusId: string;
 
   beforeAll(async () => {
     createWaybillMock = jest.fn().mockResolvedValue({
@@ -89,19 +91,27 @@ describe('Orders (e2e)', () => {
     accessToken = authUser.accessToken;
     authUserId = authUser.userId;
 
-    const [shipmentType, paymentType, deliveryType, productType, keychainType] =
-      await Promise.all([
-        prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
-        prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
-        prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
-        prisma.productType.findUniqueOrThrow({ where: { code: 'sticker' } }),
-        prisma.productType.findUniqueOrThrow({ where: { code: 'keychain' } }),
-      ]);
+    const [
+      shipmentType,
+      paymentType,
+      deliveryType,
+      productType,
+      keychainType,
+      deliveredStatus,
+    ] = await Promise.all([
+      prisma.shipmentType.findUniqueOrThrow({ where: { code: 'documents' } }),
+      prisma.paymentType.findUniqueOrThrow({ where: { code: 'full' } }),
+      prisma.deliveryType.findUniqueOrThrow({ where: { code: 'warehouse' } }),
+      prisma.productType.findUniqueOrThrow({ where: { code: 'sticker' } }),
+      prisma.productType.findUniqueOrThrow({ where: { code: 'keychain' } }),
+      prisma.shipmentStatus.findUniqueOrThrow({ where: { code: 'delivered' } }),
+    ]);
     shipmentTypeId = shipmentType.id;
     paymentTypeId = paymentType.id;
     deliveryTypeId = deliveryType.id;
     stickerProductTypeId = productType.id;
     keychainProductTypeId = keychainType.id;
+    deliveredStatusId = deliveredStatus.id;
 
     const sender = await prisma.sender.create({
       data: {
@@ -169,10 +179,46 @@ describe('Orders (e2e)', () => {
       },
     });
     seededOrderId = order.id;
+
+    const statusedOrder = await prisma.order.create({
+      data: {
+        shipmentTypeId,
+        paymentTypeId,
+        totalAmount: 150,
+        items: [
+          {
+            productId: null,
+            productTypeId: stickerProductTypeId,
+            nameSnapshot: 'E2E Наліпка (status)',
+            photoUrlSnapshot: null,
+            price: 150,
+            isPromo: false,
+            quantity: 1,
+            subtotal: 150,
+          },
+        ],
+        senderId: seededSenderId,
+        senderAddressRef: 'e2e-address-ref',
+        recipient: {
+          phone: '+380501234568',
+          lastName: 'E2E Статусний',
+          firstName: 'Отримувач',
+          middleName: null,
+        },
+        deliveryTypeId,
+        deliveryDetails: {
+          cityRef: 'e2e-city-ref',
+          warehouseRef: 'e2e-warehouse-ref',
+        },
+        npWaybillNumber: 'e2e-orders-statused-waybill-number',
+        shipmentStatusId: deliveredStatusId,
+      },
+    });
+    statusedOrderId = statusedOrder.id;
   });
 
   afterAll(async () => {
-    await safeDeleteByIds(prisma.order, [seededOrderId]);
+    await safeDeleteByIds(prisma.order, [seededOrderId, statusedOrderId]);
     await safeDeleteByIds(prisma.product, [seededProductId]);
     await safeDeleteByIds(prisma.sender, [seededSenderId]);
     await safeDeleteByIds(prisma.user, [authUserId]);
@@ -229,6 +275,38 @@ describe('Orders (e2e)', () => {
       .expect(200);
     const nonMatchingBody = nonMatchingResponse.body as ListOrdersResponseBody;
     expect(nonMatchingBody.total).toBe(0);
+  });
+
+  it('filters by shipmentStatusId to only the matching order', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ shipmentStatusId: deliveredStatusId, senderId: seededSenderId })
+      .expect(200);
+    const body = response.body as ListOrdersResponseBody;
+
+    expect(body.items.some((item) => item.id === statusedOrderId)).toBe(true);
+    expect(body.items.some((item) => item.id === seededOrderId)).toBe(false);
+  });
+
+  it('filters to orders with no shipment status when shipmentStatusId is "none"', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ shipmentStatusId: 'none', senderId: seededSenderId })
+      .expect(200);
+    const body = response.body as ListOrdersResponseBody;
+
+    expect(body.items.some((item) => item.id === seededOrderId)).toBe(true);
+    expect(body.items.some((item) => item.id === statusedOrderId)).toBe(false);
+  });
+
+  it('rejects a malformed shipmentStatusId filter with 400', () => {
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ shipmentStatusId: 'not-a-valid-id' })
+      .expect(400);
   });
 
   it('searches by recipient name parts and by waybill number', async () => {

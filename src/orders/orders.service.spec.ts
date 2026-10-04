@@ -249,6 +249,31 @@ describe('OrdersService', () => {
       );
     });
 
+    it('filters by shipmentStatusId', async () => {
+      await service.findAll(1, 10, { shipmentStatusId: 'status-id' });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { shipmentStatusId: 'status-id' },
+        }),
+      );
+    });
+
+    it('filters to orders with no shipment status when shipmentStatusId is "none"', async () => {
+      await service.findAll(1, 10, { shipmentStatusId: 'none' });
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { shipmentStatusId: null },
+              { shipmentStatusId: { isSet: false } },
+            ],
+          },
+        }),
+      );
+    });
+
     it('applies the search filter across waybill number and recipient name parts', async () => {
       await service.findAll(1, 10, { search: 'Іваненко Іван' });
 

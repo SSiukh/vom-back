@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -54,6 +55,16 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsMongoId()
   senderId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Фільтр за статусом відправлення — id з GET /dictionaries/shipment-statuses, або "none" для замовлень без статусу',
+  })
+  @IsOptional()
+  @Matches(/^(none|[0-9a-fA-F]{24})$/, {
+    message: 'shipmentStatusId має бути валідним id або значенням "none"',
+  })
+  shipmentStatusId?: string;
 
   @ApiPropertyOptional({
     description:

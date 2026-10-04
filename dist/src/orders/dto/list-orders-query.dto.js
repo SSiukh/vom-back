@@ -21,6 +21,7 @@ class ListOrdersQueryDto {
     dateTo;
     productTypeId;
     senderId;
+    shipmentStatusId;
     search;
 }
 exports.ListOrdersQueryDto = ListOrdersQueryDto;
@@ -69,6 +70,16 @@ __decorate([
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], ListOrdersQueryDto.prototype, "senderId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Фільтр за статусом відправлення — id з GET /dictionaries/shipment-statuses, або "none" для замовлень без статусу',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(/^(none|[0-9a-fA-F]{24})$/, {
+        message: 'shipmentStatusId має бути валідним id або значенням "none"',
+    }),
+    __metadata("design:type", String)
+], ListOrdersQueryDto.prototype, "shipmentStatusId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Пошук за номером накладної або ПІБ отримувача (без урахування регістру; кілька слів — усі мають знайтись)',

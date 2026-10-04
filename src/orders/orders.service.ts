@@ -439,6 +439,16 @@ export class OrdersService {
         items: { some: { productTypeId: query.productTypeId } },
       }),
       ...(query.senderId && { senderId: query.senderId }),
+      ...(query.shipmentStatusId && {
+        ...(query.shipmentStatusId === 'none'
+          ? {
+              OR: [
+                { shipmentStatusId: null },
+                { shipmentStatusId: { isSet: false } },
+              ],
+            }
+          : { shipmentStatusId: query.shipmentStatusId }),
+      }),
       ...buildOrderSearchFilter(query.search),
     };
 

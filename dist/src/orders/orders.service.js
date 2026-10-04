@@ -314,6 +314,16 @@ let OrdersService = OrdersService_1 = class OrdersService {
                 items: { some: { productTypeId: query.productTypeId } },
             }),
             ...(query.senderId && { senderId: query.senderId }),
+            ...(query.shipmentStatusId && {
+                ...(query.shipmentStatusId === 'none'
+                    ? {
+                        OR: [
+                            { shipmentStatusId: null },
+                            { shipmentStatusId: { isSet: false } },
+                        ],
+                    }
+                    : { shipmentStatusId: query.shipmentStatusId }),
+            }),
             ...(0, order_search_1.buildOrderSearchFilter)(query.search),
         };
         const [orders, total] = await Promise.all([
