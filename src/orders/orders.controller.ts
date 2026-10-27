@@ -3,14 +3,16 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -95,6 +97,31 @@ export class OrdersController {
     @Param('id', ParseObjectIdPipe) id: string,
   ): Promise<OrderResponseDto> {
     return this.ordersService.syncStatus(id);
+  }
+
+  @Throttle({
+    default: {
+      limit: NOVA_POSHTA_CALL_THROTTLE_LIMIT,
+      ttl: NOVA_POSHTA_CALL_THROTTLE_TTL_MS,
+    },
+  })
+  @Get(':id/label')
+  @Header('Content-Type', 'application/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({
+    description:
+      'Nova Poshta waybill label (100x100mm sticker with the barcode and waybill number) as a PDF',
+    schema: { type: 'string', format: 'binary' },
+  })
+  async getLabel(
+    @Param('id', ParseObjectIdPipe) id: string,
+  ): Promise<StreamableFile> {
+    const buffer = await this.ordersService.getLabel(id);
+
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `inline; filename="waybill-${id}.pdf"`,
+    });
   }
 
   @Patch(':id/status-flags')

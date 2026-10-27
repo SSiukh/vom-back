@@ -38,6 +38,7 @@ describe('OrdersService', () => {
     deleteWaybill: jest.Mock;
     getShipmentStatus: jest.Mock;
     getShipmentStatuses: jest.Mock;
+    getWaybillLabel: jest.Mock;
   };
 
   const storedOrder = {
@@ -186,6 +187,9 @@ describe('OrdersService', () => {
         .fn()
         .mockResolvedValue({ statusCode: '7', status: 'В дорозі' }),
       getShipmentStatuses: jest.fn().mockResolvedValue([]),
+      getWaybillLabel: jest
+        .fn()
+        .mockResolvedValue(Buffer.from('%PDF-1.7 fake label contents')),
     };
 
     const module = await Test.createTestingModule({
@@ -1110,6 +1114,46 @@ describe('OrdersService', () => {
         where: { id: 'order-id' },
         data: { shipmentStatusId: storedOrder.shipmentStatusId },
       });
+    });
+  });
+
+  describe('getLabel', () => {
+    it('fetches the label from Nova Poshta using the order waybill number and sender api key', async () => {
+      const result = await service.getLabel('order-id');
+
+      expect(encryption.decrypt).toHaveBeenCalledWith(sender.apiKey);
+      expect(novaPoshta.getWaybillLabel).toHaveBeenCalledWith(
+        'decrypted-api-key',
+        '20450000000000',
+      );
+      expect(result.toString('utf8')).toBe('%PDF-1.7 fake label contents');
+    });
+
+    it('throws NotFoundException for a missing order', async () => {
+      prisma.order.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.getLabel('missing-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('rejects an order with no waybill number', async () => {
+      prisma.order.findUnique.mockResolvedValueOnce({
+        ...storedOrder,
+        npWaybillNumber: null,
+      });
+
+      await expect(service.getLabel('order-id')).rejects.toThrow(
+        'has no Nova Poshta waybill',
+      );
+    });
+
+    it('rejects if the sender for this order no longer exists', async () => {
+      prisma.sender.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.getLabel('order-id')).rejects.toThrow(
+        'Sender for this order no longer exists',
+      );
     });
   });
 

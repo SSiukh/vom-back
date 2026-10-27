@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
-import { BadRequestException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException } from '@nestjs/common';
 import { NovaPoshtaService, formatNovaPoshtaDate } from './nova-poshta.service';
 
 describe('NovaPoshtaService', () => {
@@ -593,6 +593,68 @@ describe('NovaPoshtaService', () => {
       ) as { methodProperties: { Documents: unknown[] } };
       expect(firstBody.methodProperties.Documents).toHaveLength(50);
       expect(secondBody.methodProperties.Documents).toHaveLength(25);
+    });
+  });
+
+  describe('getWaybillLabel', () => {
+    function mockLabelResponse(
+      options: Partial<{
+        ok: boolean;
+        contentType: string | null;
+        body: string;
+      }>,
+    ) {
+      const body = options.body ?? '%PDF-1.7 fake label contents';
+      fetchMock.mockResolvedValueOnce({
+        ok: options.ok ?? true,
+        headers: {
+          get: () =>
+            options.contentType === undefined
+              ? 'application/pdf'
+              : options.contentType,
+        },
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(body).buffer),
+      });
+    }
+
+    it('fetches the 100x100 label by waybill number and returns it as a Buffer', async () => {
+      mockLabelResponse({ body: '%PDF-1.7 fake label contents' });
+
+      const result = await service.getWaybillLabel(
+        'test-api-key',
+        '20450000000000',
+      );
+
+      expect(result.toString('utf8')).toBe('%PDF-1.7 fake label contents');
+      const url = (fetchMock.mock.calls[0] as [string])[0];
+      expect(url).toBe(
+        'https://my.novaposhta.ua/orders/printMarking100x100/orders[]/20450000000000/type/pdf/apiKey/test-api-key',
+      );
+    });
+
+    it('throws BadGatewayException when the HTTP request itself fails', async () => {
+      mockLabelResponse({ ok: false });
+
+      await expect(
+        service.getWaybillLabel('test-api-key', '20450000000000'),
+      ).rejects.toThrow(BadGatewayException);
+    });
+
+    it('throws BadGatewayException when Nova Poshta silently returns the business-cabinet HTML (e.g. a bad api key)', async () => {
+      mockLabelResponse({ contentType: 'text/html; charset=utf-8' });
+
+      await expect(
+        service.getWaybillLabel('test-api-key', '20450000000000'),
+      ).rejects.toThrow(BadGatewayException);
+    });
+
+    it('throws BadGatewayException when Nova Poshta returns an empty body (e.g. an unknown waybill number)', async () => {
+      mockLabelResponse({ body: '' });
+
+      await expect(
+        service.getWaybillLabel('test-api-key', '20450000000000'),
+      ).rejects.toThrow(BadGatewayException);
     });
   });
 });

@@ -533,6 +533,27 @@ export class OrdersService {
     return this.toResponseDto(updated);
   }
 
+  async getLabel(id: string): Promise<Buffer> {
+    const order = await this.findOrThrow(id);
+
+    if (!order.npWaybillNumber) {
+      throw new BadRequestException(
+        'This order has no Nova Poshta waybill to print a label for',
+      );
+    }
+
+    const sender = await this.prisma.sender.findUnique({
+      where: { id: order.senderId },
+    });
+    if (!sender) {
+      throw new BadRequestException('Sender for this order no longer exists');
+    }
+
+    const apiKey = this.encryption.decrypt(sender.apiKey);
+
+    return this.novaPoshta.getWaybillLabel(apiKey, order.npWaybillNumber);
+  }
+
   async syncAllStatuses(): Promise<BulkSyncStatusResponseDto> {
     const orders = await this.prisma.order.findMany({
       where: { npWaybillNumber: { not: null } },

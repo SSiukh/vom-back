@@ -35,6 +35,7 @@ describe('Orders (e2e)', () => {
   let deleteWaybillMock: jest.Mock;
   let getShipmentStatusMock: jest.Mock;
   let getShipmentStatusesMock: jest.Mock;
+  let getWaybillLabelMock: jest.Mock;
   let seededOrderId: string;
   let statusedOrderId: string;
   let seededSenderId: string;
@@ -57,6 +58,9 @@ describe('Orders (e2e)', () => {
       .fn()
       .mockResolvedValue({ statusCode: '7', status: 'В дорозі' });
     getShipmentStatusesMock = jest.fn().mockResolvedValue([]);
+    getWaybillLabelMock = jest
+      .fn()
+      .mockResolvedValue(Buffer.from('%PDF-1.7 e2e fake label'));
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -68,6 +72,7 @@ describe('Orders (e2e)', () => {
         deleteWaybill: deleteWaybillMock,
         getShipmentStatus: getShipmentStatusMock,
         getShipmentStatuses: getShipmentStatusesMock,
+        getWaybillLabel: getWaybillLabelMock,
       })
       .compile();
 
@@ -362,6 +367,29 @@ describe('Orders (e2e)', () => {
   it('rejects a malformed order id with 400', () => {
     return request(app.getHttpServer())
       .get('/orders/not-a-valid-id')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(400);
+  });
+
+  it('returns the Nova Poshta waybill label as a PDF for an order that has a waybill', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`/orders/${statusedOrderId}/label`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(response.headers['content-type']).toBe('application/pdf');
+    expect((response.body as Buffer).toString('utf8')).toBe(
+      '%PDF-1.7 e2e fake label',
+    );
+    expect(getWaybillLabelMock).toHaveBeenCalledWith(
+      'e2e-raw-api-key',
+      'e2e-orders-statused-waybill-number',
+    );
+  });
+
+  it('rejects printing a label for an order with no waybill yet', () => {
+    return request(app.getHttpServer())
+      .get(`/orders/${seededOrderId}/label`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(400);
   });

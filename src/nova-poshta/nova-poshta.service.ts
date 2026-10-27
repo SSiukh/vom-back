@@ -1,6 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
 
 const NOVA_POSHTA_API_URL = 'https://api.novaposhta.ua/v2.0/json/';
+const NOVA_POSHTA_LABEL_URL =
+  'https://my.novaposhta.ua/orders/printMarking100x100';
 const POSTOMAT_WAREHOUSE_TYPE_DESCRIPTION = 'Поштомат';
 
 export function formatNovaPoshtaDate(date: Date): string {
@@ -303,6 +309,31 @@ export class NovaPoshtaService {
     await this.callMethod(apiKey, 'InternetDocument', 'delete', {
       DocumentRefs: [waybillRef],
     });
+  }
+
+  async getWaybillLabel(
+    apiKey: string,
+    waybillNumber: string,
+  ): Promise<Buffer> {
+    const url =
+      `${NOVA_POSHTA_LABEL_URL}/orders[]/${encodeURIComponent(waybillNumber)}` +
+      `/type/pdf/apiKey/${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new BadGatewayException('Nova Poshta label service request failed');
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (!contentType.includes('application/pdf') || buffer.length === 0) {
+      throw new BadGatewayException(
+        'Nova Poshta did not return a label for this waybill',
+      );
+    }
+
+    return buffer;
   }
 
   async getShipmentStatus(

@@ -1499,3 +1499,34 @@ dominate once foundations, Senders, and Products are in place.
       Schema change: `Order.isSettled Boolean @default(false) @map("is_settled")`
       (no `db push` — Mongo field addition only, `prisma generate`).
       Unit + e2e tests, `API_REFERENCE.md` (both copies).
+
+## Print waybill label/barcode (PDF) for an order
+
+- [x] User: `GET /orders/:id/label` — returns the Nova Poshta waybill
+      label (100x100mm sticker, barcode + ЕН number) as a PDF, so the
+      operator can print it and stick it on the parcel. Research findings
+      (`research` agent + live verification against a real sender account
+      and a real order's waybill, read-only GET calls, nothing written):
+      printing is NOT a JSON `calledMethod` on `api.novaposhta.ua/v2.0/json/`
+      like the rest of this integration — it's a separate mechanism, an
+      authenticated GET to `my.novaposhta.ua` with the apiKey and waybill
+      number as URL path segments
+      (`/orders/printMarking100x100/orders[]/{waybillNumber}/type/pdf/apiKey/{apiKey}`).
+      Confirmed live: works by `npWaybillNumber` (used `IntDocNumber`, not
+      the internal `Ref`, to avoid relying on unconfirmed Ref/number
+      interchangeability); `type=pdf` returns a real
+      `application/pdf` body; errors are NOT signaled via HTTP status —
+      an invalid apiKey silently returns the NP business-cabinet app-shell
+      HTML (200), an invalid waybill number returns an empty 200 body — so
+      the response must be validated by content-type and non-empty body,
+      not `response.ok`. `NovaPoshtaService.getWaybillLabel` does this
+      validation and returns a `Buffer`; `OrdersService.getLabel` resolves
+      the order's sender/apiKey and 400s if the order has no waybill yet;
+      the controller returns it as a `StreamableFile`
+      (`Content-Type: application/pdf`, `inline` disposition) rather than
+      JSON, since the apiKey must stay server-side (never exposed to the
+      frontend) and NP gates this on the raw secret in the URL. Throttled
+      under the same Nova Poshta call group as the other NP-touching
+      endpoints. Unit tests (`NovaPoshtaService`, `OrdersService`), e2e
+      test (mocked `NovaPoshtaService`, as the rest of `orders.e2e-spec.ts`
+      does), `API_REFERENCE.md` (both copies).
